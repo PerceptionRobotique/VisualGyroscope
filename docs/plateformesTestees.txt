@@ -1,0 +1,4 @@
+Plateformes testées :
+- Mac os 10.10.5, CMake 3.7.1, Xcode 7.2.1, ViSP 3.0.0, libxml 2.2
+- Ubuntu 16.04, CMake 3.5.1, ViSP3.0.1-dev, libxml 2.9.4-1
+- 
