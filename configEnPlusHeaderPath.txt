@@ -8,3 +8,5 @@
 /Users/guillaume/Developpement/libPR/modules/sensor_calibration/include
 /Users/guillaume/Developpement/libPR/modules/sensor_pose_estimation/include
 /Users/guillaume/Developpement/libPR/modules/world_reconstruction/include
+
+
