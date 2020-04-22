@@ -212,7 +212,7 @@ int main(int argc, char **argv)
     IS_req.toAbsZN();
     prRegularlySampledCSImage<float> GS(subdivLevel); //contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
 
-    prFeaturesSet<prPhotometricGMS<prCartesian3DPointVec> > fSet_req;
+    prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > fSet_req;
 
     prPhotometricGMS<prCartesian3DPointVec> GS_sample_req(lambda_g);
     fSet_req.buildFrom(IS_req, GS, GS_sample_req);
@@ -262,13 +262,13 @@ int main(int argc, char **argv)
         IS_des.buildFromTwinOmni(I_des, stereoCam, &Mask);
         IS_des.toAbsZN();
 
-        prFeaturesSet<prPhotometricGMS<prCartesian3DPointVec> > fSet_des;
+        prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > fSet_des;
         prPhotometricGMS<prCartesian3DPointVec> GS_sample(lambda_g);
         fSet_des.buildFrom(IS_des, GS, GS_sample); // Goulot !
 
         std::cout << "nb features : " << fSet_des.set.size() << std::endl;
         
-        prSSDCmp<prPhotometricGMS<prCartesian3DPointVec> > errorComputer(fSet_req, fSet_des, robust);
+        prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > errorComputer(fSet_req, fSet_des, robust);
         prPhotometricGMS<prCartesian3DPointVec> GS_error = errorComputer.getRobustCost();
         //err.push_back(sqrt(GS_error.getGMS()));
         err.push_back(GS_error.getGMS());
