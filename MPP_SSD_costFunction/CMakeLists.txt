@@ -23,7 +23,7 @@
 #
 #############################################################################
 
-project(PGm_SSD_costFunction)
+project(MPP_SSD_costFunction)
 
 cmake_minimum_required(VERSION 2.6)
 
@@ -35,17 +35,21 @@ endif(PER_FOUND)
 # Boost
 FIND_PACKAGE(Boost REQUIRED)
 
-link_directories(/opt/local/lib/ /Users/guillaume/Developpement/librairies/visp-3.0.0/build/lib/Release/ ${Boost_LIBRARY_DIRS})
+include_directories(${Boost_INCLUDE_DIRS}) # /opt/local/include/ might be needed as well under MacOS
 
-set(PGmSSDcostFunction_cpp
-  PGmSSDcostFunction.cpp
+link_directories(${Boost_LIBRARY_DIRS}) # /opt/local/lib/ might be needed as well under MacOS # similar /Users/guillaume/Developpement/librairies/visp-3.0.1/build/lib/Release/ might be needed as well under MacOS 
+
+set(MPPSSDcostFunction_cpp
+  MPPSSDcostFunction.cpp
 )
 
-foreach(cpp ${PGmSSDcostFunction_cpp})
+foreach(cpp ${MPPSSDcostFunction_cpp})
   per_add_target(${cpp})
   if(COMMAND pr_add_dependency)
-    pr_add_dependency(${cpp} "PGmSSDcostFunction")
+    pr_add_dependency(${cpp} "MPPSSDcostFunction")
   endif()
 endforeach()
 
-target_link_libraries(PGmSSDcostFunction libboost_system-mt.dylib libboost_filesystem-mt.dylib libboost_regex-mt.dylib)
+#target_link_libraries(MPPSSDcostFunction libboost_system-mt.dylib libboost_filesystem-mt.dylib libboost_regex-mt.dylib)
+
+target_link_libraries(MPPSSDcostFunction libboost_system-mt.so libboost_filesystem-mt.so libboost_regex-mt.so)
