@@ -45,3 +45,5 @@ that are, in the reading order:
 - ficPosesInit the text file of initial poses, one pose line per image to process (no example provided)
 
 Sample calibration, images and mask files are provided in the "MPP_SSD_gyroEstimation_media" archive to be downloaded from here: http://mis.u-picardie.fr/~g-caron/data/PeR/2017_MPP_SSD_gyroEstimation_media.zip 
+
+Note: validated with libPeR-0.0.2
