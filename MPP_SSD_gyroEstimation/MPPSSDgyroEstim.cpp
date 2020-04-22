@@ -13,7 +13,7 @@
  \param iStep the image sequence looping step
  \param Mask the image file of the mask (white pixels are to be considered whereas black pixels are not)
  \param nbTries the number of tested initial guesses for the optimization (the one leading to the lower MPP-SSD is kept)
- \param estimationType selects which estimation type to consider between 1 pure gyro, 2 incremental gyro, 3 incremental fyro with key images
+ \param estimationType selects which estimation type to consider between 0 pure gyro, 1 incremental gyro, 2 incremental fyro with key images
  \param stabilization if 1, outputs the rotation compensated dualfisheye image
  \param ficPosesInit the text file of initial poses (one pose line per image to process)
  *
@@ -541,7 +541,7 @@ int main(int argc, char **argv)
         }
         s.str("");
         s.setf(std::ios::right, std::ios::adjustfield);
-        s << chemin << "/" << std::setfill('0') << std::setw(6) << imNum << ".jpg";
+        s << chemin << "/rotComp/" << std::setfill('0') << std::setw(6) << imNum << ".png";
         filename = s.str();
         vpImageIo::write(I_r, filename);
         

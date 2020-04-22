@@ -50,4 +50,6 @@ foreach(cpp ${MPPSSDgyroEstim_cpp})
   endif()
 endforeach()
 
-target_link_libraries(MPPSSDgyroEstim libboost_system-mt.dylib libboost_filesystem-mt.dylib libboost_regex-mt.dylib)
+#target_link_libraries(MPPSSDgyroEstim libboost_system-mt.dylib libboost_filesystem-mt.dylib libboost_regex-mt.dylib)
+
+target_link_libraries(MPPSSDgyroEstim libboost_system-mt.so libboost_filesystem-mt.so libboost_regex-mt.so)
