@@ -22,12 +22,13 @@
 #
 #############################################################################
 
+0. install libPeR, libboost-filesystem-dev, libboost-system-dev, libboost-regex-dev
 1. create a new directory named build in MPP_SSD_gyroEstimation_EquiRect
 2. use cmake to fill the build directory
 3. open the project in build or use make in the latter directory to build the exe file
 4. run the program from the command line at the project top directory, considering it includes the 2021_MPP_SSD_gyroEstimation_EquiRect_media directory, with arguments as:
 
-./build/Release/MPPSSDgyroEstim_EquiRect ./2021_MPP_SSD_gyroEstimation_EquiRect_media/calibration/calib_subdiv3.xml 3 0.325 ./2021_MPP_SSD_gyroEstimation_EquiRect_media/images_subdiv3/ 8790 8790 8890 1 ./2021_MPP_SSD_gyroEstimation_EquiRect_media/images_subdiv3/maskFull.png 1 1 1
+./build/Release/MPPSSDgyroEstim_EquiRect ./2021_MPP_SSD_gyroEstimation_EquiRect_media/calibration/calib_subdiv3.xml 3 0.325 ./2021_MPP_SSD_gyroEstimation_EquiRect_media/images_subdiv3/ 8790 8790 8890 1 ./2021_MPP_SSD_gyroEstimation_EquiRect_media/images_subdiv3/maskFull.png 1 1 1 0
 
 that are, in the reading order:
 - the dual fisheye camera calibration xml file (to be removed soon)
@@ -42,8 +43,9 @@ that are, in the reading order:
 - the number of tested initial guesses for the optimization (the one leading to the lower MPP-SSD is kept)
 - selects which estimation type to consider between 1 pure gyro, 2 incremental gyro, 3 incremental fyro with key images
 - if 1, outputs the rotation compensated equirectangular image in jpg file
+- if 1, considers truncated Gaussian domain (+ or - 3 lambda_g at most)
 - ficPosesInit the text file of initial poses, one pose line per image to process (no example provided)
 
 Sample calibration, images and mask files are provided in the "MPP_SSD_gyroEstimation_EquiRect_media" archive to be downloaded from here: http://mis.u-picardie.fr/~g-caron/data/PeR/2021_MPP_SSD_gyroEstimation_EquiRect_media.zip 
 
-Note: validated with libPeR-0.0.2
+Note: validated with libPeR/devel

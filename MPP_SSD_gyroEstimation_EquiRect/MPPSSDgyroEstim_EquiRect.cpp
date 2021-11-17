@@ -2,7 +2,7 @@
  \file MPPSSDgyroEstim_EquiRect.cpp
  \brief Mixture of Photometric Potentials (MPP) SSD for spherical camera orientation estimation (3 DOFs), exploiting PeR core, core_extended, io, features, estimation and sensor_pose_estimation modules
  * example command line :
- *  ./MPPSSDgyroEstim /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/SVMIS/calib/resultats/calib_subdiv3.xml 3 0.325 /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/wheelchairESIGELEC/sequence/subdiv3/ 1 1 850 1 /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/wheelchairESIGELEC/sequence/subdiv3/maskFull.png 1 1 1
+ *  ./MPPSSDgyroEstim /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/SVMIS/calib/resultats/calib_subdiv3.xml 3 0.325 /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/wheelchairESIGELEC/sequence/subdiv3/ 1 1 850 1 /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/wheelchairESIGELEC/sequence/subdiv3/maskFull.png 1 1 1 0
  \param xmlFic the dual fusheye camera calibration xml file
  \param subDiv the number of subdivision levels for the spherical image sampling
  \param lambda_g the Gaussian expansion parameter
@@ -13,8 +13,9 @@
  \param iStep the image sequence looping step
  \param Mask the image file of the mask (white pixels are to be considered whereas black pixels are not)
  \param nbTries the number of tested initial guesses for the optimization (the one leading to the lower MPP-SSD is kept)
- \param estimationType selects which estimation type to consider between 0 pure gyro, 1 incremental gyro, 2 incremental fyro with key images
+ \param estimationType selects which estimation type to consider between 0 pure gyro, 1 incremental gyro, 2 incremental gyro with key images
  \param stabilization if 1, outputs the rotation compensated dualfisheye image
+ \param truncGauss truncated Gaussian domain: 1 yes (+ or - 3 lambda_g at most), 0 no (default)
  \param ficPosesInit the text file of initial poses (one pose line per image to process)
  *
  \author Guillaume CARON
@@ -274,11 +275,23 @@ int main(int argc, char **argv)
     }
     else
         stabilisation = atoi(argv[12]);
+
+		//truncated Gaussians
+    unsigned int truncGauss = 0;
+    if(argc < 14)
+    {
+#ifdef VERBOSE
+        std::cout << "no Gaussian truncature parameter given" << std::endl;
+#endif
+        //return -9;
+    }
+    else
+        truncGauss = atoi(argv[13]);
     
     //fichier avec les poses initiales r_0
     bool ficInit = false;
     std::vector<vpPoseVector> v_pv_init;
-    if(argc < 14)
+    if(argc < 15)
     {
 #ifdef VERBOSE
         std::cout << "no initial poses file given" << std::endl;
@@ -289,7 +302,7 @@ int main(int argc, char **argv)
     {
         ficInit = true;
 
-        std::ifstream ficPosesInit(argv[13]);
+        std::ifstream ficPosesInit(argv[14]);
         vpPoseVector r;
         while(!ficPosesInit.eof())
         {
@@ -317,7 +330,7 @@ int main(int argc, char **argv)
     
     //En image spherique
     //initialisation de l'estimation d'orientation
-    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, prRegularlySampledCSImage >, prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > > gyro;
+    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, prRegularlySampledCSImage >, prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > > gyro(1e-6);
 //    bool dofs[6] = {false, false, false, true, false, false}; //"compas"
     bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
 
@@ -333,13 +346,13 @@ int main(int argc, char **argv)
     prRegularlySampledCSImage<float> GS(subdivLevel); //contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
     
     prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>,prRegularlySampledCSImage > fSet_req;
-    prPhotometricGMS<prCartesian3DPointVec> GS_sample_req(lambda_g);
+    prPhotometricGMS<prCartesian3DPointVec> GS_sample_req(lambda_g, truncGauss==1);
     // TODO : calculer en parallele un fSet_req avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
     fSet_req.buildFrom(IS_req, GS, GS_sample_req);
 
     gyro.buildFrom(fSet_req);
     
-    prPhotometricGMS<prCartesian3DPointVec> GS_sample(lambda_g);
+    prPhotometricGMS<prCartesian3DPointVec> GS_sample(lambda_g, truncGauss==1);
     std::cout << "nb features : " << fSet_req.set.size() << std::endl;
     
     vpDisplayX disp2;
