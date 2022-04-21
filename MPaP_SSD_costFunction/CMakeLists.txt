@@ -32,6 +32,12 @@ if(PER_FOUND)
 	include(${PER_USE_FILE})
 endif(PER_FOUND)
 
+# ViSP (to do: list modules only)
+find_package(VISP REQUIRED)
+if(VISP_FOUND)
+	include(${VISP_USE_FILE})
+endif(VISP_FOUND)
+
 # Boost
 FIND_PACKAGE(Boost REQUIRED)
 
@@ -52,4 +58,6 @@ endforeach()
 
 #target_link_libraries(MPaPSSDcostFunction libboost_system-mt.dylib libboost_filesystem-mt.dylib libboost_regex-mt.dylib)
 
-target_link_libraries(MPaPSSDcostFunction libboost_system-mt.so libboost_filesystem-mt.so libboost_regex-mt.so)
+#target_link_libraries(MPaPSSDcostFunction libboost_system-mt.so libboost_filesystem-mt.so libboost_regex-mt.so)
+
+target_link_libraries(MPaPSSDcostFunction libboost_system.so libboost_filesystem.so libboost_regex.so)
