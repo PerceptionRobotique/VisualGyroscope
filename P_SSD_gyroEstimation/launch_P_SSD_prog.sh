@@ -32,33 +32,27 @@ echo "Variables initialization"
 
 # 1. Camera calibration file
 CalibFile=../../../Sequence3/calib_twin_fisheye.xml
-# CalibFile=../../../2021_MPP_SSD_gyroEstimation_EquiRect_media/calibration/calib.xml
 
 # 2. Number of subdivisions of the sphere
 SubdivLvl=5
 
 # 3. Directory containing the images to treat
-imDir=../../../Sequence3/images/Images
-# imDir=../../../2021_MPP_SSD_gyroEstimation_EquiRect_media/images_full/
+imDir=../../../Sequence3/images/Images/
 
 # 4. Name of the first reference image
-iRef=000000
-# iRef=8790
+iRef=0
 
 # 5. Name of the first image to take account of
-i0=000001
-# i0=8791
+i0=1
 
 # 6. Name of the last image to take account of
-i360=00002
-# i360=8792
+i360=144
 
 # 7. The image sequence looping step
 iStep=1
 
 # 8. Image mask to avoid taking account of unused pixel, white pixels of this mask are taken in account, black are not
-mask=./../../Sequence3/maskFull.png
-# mask=./../../2021_MPP_SSD_gyroEstimation_EquiRect_media/images_full/maskFull.png
+mask=../../../Sequence3/maskFull.png
 
 # 9. Number of tested initial guesses
 nbTries=1

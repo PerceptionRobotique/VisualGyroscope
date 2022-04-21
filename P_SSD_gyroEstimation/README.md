@@ -39,10 +39,3 @@ Simply use the `./launch_P_SSD_prog.sh` file in a terminal. This short bash scri
 The parameters given as an input to the main `.cpp` program can be changed directly in this launching file.
 
 **LibPeR version to use : branch `PVS`**
-
-## TO DO
-
-- [ ] Clean up a bit the main file
-- [ ] Add an option to either work with dual fisheye camera or equirectangular one
-- [ ] Saving output file is temporary removed, output is only made via the terminal
-- [ ] Saving output images from the orientation estimation is also temporary removed

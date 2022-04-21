@@ -1,5 +1,5 @@
 /*!
- \file MPPSSDgyroEstim_EquiRect.cpp
+ \file P_SSD_gyroEstimation.cpp
  \brief Photometric SSD for spherical camera orientation estimation (3 DOFs), exploiting PeR core, core_extended, io, features, estimation and sensor_pose_estimation modules
  * Please refer to the launch_P_SSD_prog.sh file for the program launching procedure.
  \param xmlFic the dual fisheye camera calibration xml file
@@ -16,7 +16,7 @@
  *
  \author Guillaume CARON, Antoine ANDRÉ
  \version 0.1
- \date Feb. 2022
+ \date Apr. 2022
  */
 
 #include <iostream>
@@ -39,6 +39,7 @@
 
 #include <visp/vpImage.h>
 #include <visp/vpImageIo.h>
+#include <visp/vpImageTools.h>
 
 #include <visp/vpTime.h>
 
@@ -50,11 +51,12 @@
 
 /*!
  * \fn main()
- * \brief Main function of the P SSD based spherical orientation estimation
+ * \brief Main function of the photometrics SSD based spherical orientation estimation
  *
  * 1. Loading a divergent stereovision system made of two fisheye cameras considering the Barreto's model from an XML file got from the MV calibration software
- * 2. Gyro objects initialization, considering the pose estimation of a spherical camera from the feature set of photometric 3D samples compared thanks to the SSD
- * 3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the SSD error is greater than a threshold)
+ * 2. Gyro objects initialization, considering the pose estimation of a spherical camera from the feature set of photometric Gaussian mixture 3D samples compared thanks to the SSD
+ * 3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
+ * 4. Save the MMP-SSD at optimal poses, optimal poses, processing times and key images numbers to files
  *
  * \return
  *          0 if the program ended without any issue
@@ -80,12 +82,14 @@ int main(int argc, char **argv)
 
     // Create an empty rig
     prStereoModel stereoCam(2);
+    prStereoModel stereoCamSmall(2);
 
     // Load the stereo rig parameters from the XML file
     {
         prStereoModelXML fromFile(argv[1]);
 
         fromFile >> stereoCam;
+        fromFile >> stereoCamSmall;
 
         /*
          //Indicatif : A ameliorer en integrant les coef de dist dans le XML...
@@ -197,6 +201,14 @@ int main(int argc, char **argv)
             break;
         }
     }
+
+    // Create the various directories to store the results
+    char cheminRotComp[100];           // array to hold the result.
+    strcpy(cheminRotComp, chemin);     // copy string one into the result.
+    strcat(cheminRotComp, "/rotComp"); // append string two to the result.
+    boost::filesystem::path dirRotComp(cheminRotComp);
+    boost::filesystem::create_directory(dirRotComp);
+
     vpDisplayX disp;
     disp.init(I_req, 25, 25, "I_req");
     vpDisplay::display(I_req);
@@ -204,7 +216,7 @@ int main(int argc, char **argv)
 
     // lecture de l'image "masque"
     // Chargement du masque
-    vpImage<unsigned char> Mask;
+    vpImage<unsigned char> Mask, MaskSmall;
     if (argc < 9)
     {
 #ifdef VERBOSE
@@ -263,26 +275,32 @@ int main(int argc, char **argv)
 
     // fichier avec les poses initiales r_0
     bool ficInit = false;
+    std::vector<vpPoseVector> v_pv_init;
+    if (argc < 13)
+    {
+#ifdef VERBOSE
+        std::cout << "no initial poses file given" << std::endl;
+#endif
+        // return -9;
+    }
+    else
+    {
+        ficInit = true;
 
+        std::ifstream ficPosesInit(argv[13]);
+        vpPoseVector r;
+        while (!ficPosesInit.eof())
+        {
+            ficPosesInit >> r[0] >> r[1] >> r[2] >> r[3] >> r[4] >> r[5];
+            v_pv_init.push_back(r);
+        }
+        ficPosesInit.close();
+    }
     // 2. Gyro objects initialization, considering the pose estimation of a spherical camera from the feature set of photometric Gaussian mixture 3D samples compared thanks to the SSD
-
-    /*unsigned */ int ehaut, elarg;
-    ehaut = I_req.getHeight();
-    elarg = I_req.getWidth();
-    // nbPixelse = ehaut*elarg;
-    prEquirectangular ecam(elarg * 0.5 / M_PI, ehaut * 0.5 / (M_PI * 0.5), elarg * 0.5, ehaut * 0.5);
-
-    /*
-    //En image plane
-    prPhotometricGMS<pr2DCartesianPointVec> G_sample;
-    pr2DCartesianPointVec u_g;
-    G_sample.buildFrom(I_req, u_g, lambda_g);
-    */
 
     // En image spherique
     // initialisation de l'estimation d'orientation
-    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec>, prStereoModel, prRegularlySampledCSImage>, prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec>, prStereoModel>> gyro(1e-6);
-    //    bool dofs[6] = {false, false, false, true, false, false}; //"compas"
+    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>, prRegularlySampledCSImage>, prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>>> gyro(1e-9);
     bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
 
     gyro.setdof(dofs[0], dofs[1], dofs[2], dofs[3], dofs[4], dofs[5]);
@@ -292,18 +310,20 @@ int main(int argc, char **argv)
     IS_req.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
 
     IS_req.buildFromTwinOmni(I_req, stereoCam, &Mask); // Goulot !
-    // IS_req.buildFromEquiRect(I_req, ecam, &Mask);
-    // IS_req.toAbsZN();                                 // prepare spherical pixels intensities for the MPP cost function expression constraints
-    prRegularlySampledCSImage<float> GS(subdivLevel); // contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
+    prRegularlySampledCSImage<float> GS(subdivLevel);  // contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
 
-    prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec>, prStereoModel, prRegularlySampledCSImage> fSet_req;
-    prIntensity<prCartesian3DPointVec> GS_sample_req;
+    prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>, prRegularlySampledCSImage> fSet_req;
+    prIntensity<prCartesian3DPointVec, prStereoModel> GS_sample_req;
+    GS_sample_req.setSensor(&stereoCam);
+
     // TODO : calculer en parallele un fSet_req avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
-    fSet_req.buildFrom(IS_req, GS, GS_sample_req, false, false, false, &stereoCam);
+    fSet_req.buildFrom(IS_req, GS, GS_sample_req);
 
     gyro.buildFrom(fSet_req);
 
-    prIntensity<prCartesian3DPointVec> GS_sample;
+    prIntensity<prCartesian3DPointVec, prStereoModel> GS_sample;
+    GS_sample.setSensor(&stereoCam);
+
     std::cout << "nb features : " << fSet_req.set.size() << std::endl;
 
     vpDisplayX disp2;
@@ -338,8 +358,48 @@ int main(int argc, char **argv)
 
     // 3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
     // double angle = -177.5*M_PI/180.;
-    prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec>, prStereoModel, prRegularlySampledCSImage> fSet_des;
+    prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>, prRegularlySampledCSImage> fSet_des;
     double seuilErr = 0.0325; // 0.015; //0.0077;// // OK pour 0,325 seul et subdiv3
+
+    // Adjust the images output size to match the number of spherical features
+    int numberFeatSubdiv[] = {0, 0, 0, 642, 2562, 10242};
+    double divideScaleFac = sqrt((double)(I_req.getHeight() * I_req.getWidth()) / (double)numberFeatSubdiv[subdivLevel]);
+    // divideScaleFac = 1;
+    std::cout << "subdiv level: " << subdivLevel << std::endl;
+    std::cout << "Divide factor: " << divideScaleFac << std::endl;
+    vpImageTools::vpImageInterpolationType resizeType = vpImageTools::INTERPOLATION_NEAREST;
+    int newHeight, newWidth;
+    if (divideScaleFac != 1)
+    {
+
+        for (int camNum = 0; camNum < 2; camNum++)
+        {
+            double u0 = ((prOmni *)(stereoCam.sen[camNum]))->getu0() / divideScaleFac;
+            double v0 = ((prOmni *)(stereoCam.sen[camNum]))->getv0() / divideScaleFac;
+            double au = ((prOmni *)(stereoCam.sen[camNum]))->getau() / divideScaleFac;
+            double av = ((prOmni *)(stereoCam.sen[camNum]))->getav() / divideScaleFac;
+            ((prOmni *)(stereoCamSmall.sen[camNum]))->setPrincipalPoint(u0, v0);
+            ((prOmni *)(stereoCamSmall.sen[camNum]))->setPixelRatio(au, av);
+        }
+
+        newHeight = ceil((double)I_req.getHeight() / divideScaleFac);
+        newWidth = ceil((double)I_req.getWidth() / divideScaleFac);
+
+        if (newWidth % 2 != 0)
+        {
+            newWidth++;
+        }
+        if (newHeight % 2 != 0)
+        {
+            newHeight++;
+        }
+
+        std::cout << "new width " << newWidth << ", new height " << newHeight << std::endl;
+
+        MaskSmall.resize(newHeight, newWidth);
+        vpImageTools::resize(Mask, MaskSmall, resizeType);
+    }
+
     while (!clickOut && (imNum <= i360))
     {
         temps = vpTime::measureTimeMs();
@@ -406,74 +466,81 @@ int main(int argc, char **argv)
         prRegularlySampledCSImage<unsigned char> IS_des(subdivLevel);
         IS_des.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
         IS_des.buildFromTwinOmni(I_des, stereoCam, &Mask);
-        // IS_des.buildFromEquiRect(I_des, ecam, &Mask);
         // IS_des.toAbsZN();
 
         // calculer en parallele un fSet_des avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
-        fSet_des.buildFrom(IS_des, GS, GS_sample, poseJacobianCompute, false, false, &stereoCam); // Goulot !
+        fSet_des.buildFrom(IS_des, GS, GS_sample, poseJacobianCompute); // Goulot !
         std::cout << "nb features : " << fSet_des.set.size() << std::endl;
 
         // if there is a file provided as initial poses, they are used instead of other strategies
-        // trying to select the best initial 3D orientation guess
-        if (nbTries > 1)
+        if (ficInit)
         {
-            vpPoseVector r_best_init;
-            double err_min_init = 1e20;
-            double angle[3] = {0, 0, 0}, pasAngulaire;
-            vpHomogeneousMatrix dMc;
-            double err0;
-            pasAngulaire = 2.0 * M_PI / nbTries;
+            r = v_pv_init[nbPass];
+            std::cout << "r init : " << r.t() << std::endl;
+        }
+        else
+        {
+            // trying to select the best initial 3D orientation guess
+            if (nbTries > 1)
+            {
+                vpPoseVector r_best_init;
+                double err_min_init = 1e20;
+                double angle[3] = {0, 0, 0}, pasAngulaire;
+                vpHomogeneousMatrix dMc;
+                double err0;
+                pasAngulaire = 2.0 * M_PI / nbTries;
 
-            unsigned int nbTriesPerDOF[3] = {1, 1, 1};
-            if (dofs[3])
-            {
-                nbTriesPerDOF[0] = nbTries;
-                angle[0] = -pasAngulaire * floor(nbTries * 0.5);
-            }
-            if (dofs[4])
-            {
-                nbTriesPerDOF[1] = 1; // nbTries;
-                angle[1] = -pasAngulaire * floor(nbTries * 0.5);
-            }
-            if (dofs[5])
-            {
-                nbTriesPerDOF[2] = 1; // nbTries;
-                angle[2] = -pasAngulaire * floor(nbTries * 0.5);
-            }
-            for (int iTry0 = 0; iTry0 < nbTriesPerDOF[0]; iTry0++, angle[0] += pasAngulaire)
-            {
-                r[3] = angle[0];
-                if (dofs[4])
-                    angle[1] = -pasAngulaire * floor(nbTries * 0.5);
-                else
-                    angle[1] = 0;
-                for (int iTry1 = 0; iTry1 < nbTriesPerDOF[1]; iTry1++, angle[1] += pasAngulaire)
+                unsigned int nbTriesPerDOF[3] = {1, 1, 1};
+                if (dofs[3])
                 {
-                    r[4] = angle[1];
-                    if (dofs[5])
-                        angle[2] = -pasAngulaire * floor(nbTries * 0.5);
+                    nbTriesPerDOF[0] = nbTries;
+                    angle[0] = -pasAngulaire * floor(nbTries * 0.5);
+                }
+                if (dofs[4])
+                {
+                    nbTriesPerDOF[1] = 1; // nbTries;
+                    angle[1] = -pasAngulaire * floor(nbTries * 0.5);
+                }
+                if (dofs[5])
+                {
+                    nbTriesPerDOF[2] = 1; // nbTries;
+                    angle[2] = -pasAngulaire * floor(nbTries * 0.5);
+                }
+                for (int iTry0 = 0; iTry0 < nbTriesPerDOF[0]; iTry0++, angle[0] += pasAngulaire)
+                {
+                    r[3] = angle[0];
+                    if (dofs[4])
+                        angle[1] = -pasAngulaire * floor(nbTries * 0.5);
                     else
-                        angle[2] = 0;
-                    for (int iTry2 = 0; iTry2 < nbTriesPerDOF[2]; iTry2++, angle[2] += pasAngulaire)
+                        angle[1] = 0;
+                    for (int iTry1 = 0; iTry1 < nbTriesPerDOF[1]; iTry1++, angle[1] += pasAngulaire)
                     {
-                        r[5] = angle[2];
-
-                        dMc.buildFrom(r);
-                        fSet_req.update(dMc);
-
-                        prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec>, prStereoModel> errorComputer(fSet_req, fSet_des, robust);
-                        prIntensity<prCartesian3DPointVec> GS_error = errorComputer.getRobustCost();
-                        err0 = GS_error.getValIntensity();
-
-                        if (err0 < err_min_init)
+                        r[4] = angle[1];
+                        if (dofs[5])
+                            angle[2] = -pasAngulaire * floor(nbTries * 0.5);
+                        else
+                            angle[2] = 0;
+                        for (int iTry2 = 0; iTry2 < nbTriesPerDOF[2]; iTry2++, angle[2] += pasAngulaire)
                         {
-                            err_min_init = err0;
-                            r_best_init = r;
+                            r[5] = angle[2];
+
+                            dMc.buildFrom(r);
+                            fSet_req.update(dMc);
+
+                            prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>> errorComputer(fSet_req, fSet_des, robust);
+                            prIntensity<prCartesian3DPointVec, prStereoModel> GS_error = errorComputer.getCost();
+                            err0 = GS_error.getVal();
+
+                            if (err0 < err_min_init)
+                            {
+                                err_min_init = err0;
+                                r_best_init = r;
+                            }
                         }
                     }
                 }
+                r = r_best_init;
             }
-            r = r_best_init;
         }
 
         // register the request feature set over the desired one and save the optimal MPP-SSD
@@ -492,23 +559,25 @@ int main(int argc, char **argv)
 
         clickOut = vpDisplay::getClick(I_req, false);
 
-        vpImage<unsigned char> I_r(I_des.getHeight(), I_des.getWidth());
+        vpImage<unsigned char> I_r(newHeight, newWidth);
         if (stabilisation)
         {
             vpPoseVector ir;
             ir.buildFrom(vpHomogeneousMatrix(r_to_save).inverse());
-            // IS_des.toTwinOmni(I_r, ir, stereoCam, &Mask);
-            IS_des.toEquiRect(I_r, ir, ecam, &Mask);
+            IS_des.toTwinOmni(I_r, ir, stereoCamSmall, &MaskSmall);
         }
         else
         {
-            // IS_req.toTwinOmni(I_r, r, stereoCam, &Mask);
-            IS_req.toEquiRect(I_r, r, ecam, &Mask);
+            IS_req.toTwinOmni(I_r, r, stereoCamSmall, &MaskSmall);
         }
+        s.str("");
+        s.setf(std::ios::right, std::ios::adjustfield);
+        s << chemin << "/rotComp/" << std::setfill('0') << std::setw(6) << imNum << ".png";
+        filename = s.str();
+        vpImageIo::write(I_r, filename);
 
         imNum += iStep;
         nbPass++;
-        // angle += 2.5*M_PI/180.;
     }
 
     // 4. Save the MMP-SSD at optimal poses, optimal poses, processing times and key images numbers to files
