@@ -212,8 +212,8 @@ int main(int argc, char **argv)
     IS_req.toAbsZN();
     prRegularlySampledCSImage<float> GS(subdivLevel); //contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
 
-    prFeaturesSet<prCartesian3DPointVec, prPhotometricAGMS<prCartesian3DPointVec> > fSet_req;
-
+    //prFeaturesSet<prCartesian3DPointVec, prPhotometricAGMS<prCartesian3DPointVec> > fSet_req;
+		prFeaturesSet<prCartesian3DPointVec, prPhotometricAGMS<prCartesian3DPointVec>,prRegularlySampledCSImage > fSet_req;
     prPhotometricAGMS<prCartesian3DPointVec> GS_sample_req(lambda_g);
     fSet_req.buildFrom(IS_req, GS, GS_sample_req);
 
@@ -262,7 +262,8 @@ int main(int argc, char **argv)
         IS_des.buildFromTwinOmni(I_des, stereoCam, &Mask);
         IS_des.toAbsZN();
 
-        prFeaturesSet<prCartesian3DPointVec, prPhotometricAGMS<prCartesian3DPointVec> > fSet_des;
+        //prFeaturesSet<prCartesian3DPointVec, prPhotometricAGMS<prCartesian3DPointVec> > fSet_des;
+				prFeaturesSet<prCartesian3DPointVec, prPhotometricAGMS<prCartesian3DPointVec>,prRegularlySampledCSImage > fSet_des;
         prPhotometricAGMS<prCartesian3DPointVec> GS_sample(lambda_g);
         fSet_des.buildFrom(IS_des, GS, GS_sample); // Goulot !
 
