@@ -2,8 +2,7 @@
  \file MPPSSDgyroEstim_EquiRect.cpp
  \brief Mixture of Photometric Potentials (MPP) SSD for spherical camera orientation estimation (3 DOFs), exploiting PeR core, core_extended, io, features, estimation and sensor_pose_estimation modules
  * example command line :
- *  ./MPPSSDgyroEstim /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/SVMIS/calib/resultats/calib_subdiv3.xml 3 0.325 /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/wheelchairESIGELEC/sequence/subdiv3/ 1 1 850 1 /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/wheelchairESIGELEC/sequence/subdiv3/maskFull.png 1 1 1 0
- \param xmlFic the dual fusheye camera calibration xml file
+ *  ./MPPSSDgyroEstim 3 0.325 /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/wheelchairESIGELEC/sequence/subdiv3/ 1 1 850 1 /Users/guillaume/Acquisitions/gyrovisu/spherique/gyro/wheelchairESIGELEC/sequence/subdiv3/maskFull.png 1 1 1 0
  \param subDiv the number of subdivision levels for the spherical image sampling
  \param lambda_g the Gaussian expansion parameter
  \param imDir the directory containing the Equirectangular images to process
@@ -19,16 +18,13 @@
  \param ficPosesInit the text file of initial poses (one pose line per image to process)
  *
  \author Guillaume CARON
- \version 0.1
- \date june 2021
+ \version 0.2
+ \date june 2021, february 2023
  */
 
 #include <iostream>
 #include <iomanip>
 
-#include <per/prStereoModel.h>
-
-#include <per/prStereoModelXML.h>
 #include <per/prRegularlySampledCSImage.h>
 
 #include <per/prPhotometricGMS.h>
@@ -50,20 +46,19 @@
 
 #define INTERPTYPE prInterpType::IMAGEPLANE_BILINEAR
 
-//#define VERBOSE
+#define VERBOSE
 
 /*!
  * \fn main()
  * \brief Main function of the MPP SSD based spherical orientation estimation
  *
- * 1. Loading a divergent stereovision system made of two fisheye cameras considering the Barreto's model from an XML file got from the MV calibration software
+ * 1. Get the parameters of the command line 
  * 2. Gyro objects initialization, considering the pose estimation of a spherical camera from the feature set of photometric Gaussian mixture 3D samples compared thanks to the SSD
  * 3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
  * 4. Save the MMP-SSD at optimal poses, optimal poses, processing times and key images numbers to files
  *
  * \return
  *          0 if the program ended without any issue
- *         -1 if no XML stereo rig is provided
  *         -2 if no subdivision level is provided
  *         -3 no lambda_g value
  *         -4 no image files directory path
@@ -75,129 +70,106 @@
 int main(int argc, char **argv)
 {
     
-    //1. Loading a divergent stereovision system made of two fisheye cameras considering the Barreto's model from an XML file got from the MV calibration software
-    if(argc < 2)
-    {
-#ifdef VERBOSE
-        std::cout << "no XML stereo rig file given" << std::endl;
-#endif
-        return -1;
-    }
-    
-    //Create an empty rig
-    prStereoModel stereoCam(2);
-
-    // Load the stereo rig parameters from the XML file
-    {
-        prStereoModelXML fromFile(argv[1]);
-        
-        fromFile >> stereoCam;
-        
-        /*
-         //Indicatif : A ameliorer en integrant les coef de dist dans le XML...
-        ((prCameraModel *)stereoCam.sen[0])->setActiveDistorsionParameters(true);
-        ((prCameraModel *)stereoCam.sen[0])->setDistorsionParameters(0.4583076735);
-        ((prCameraModel *)stereoCam.sen[1])->setActiveDistorsionParameters(true);
-        ((prCameraModel *)stereoCam.sen[1])->setDistorsionParameters(0.6968629393);
-         */
-    }
-
-#ifdef VERBOSE
-    std::cout << "Loading the XML file to an empty rig..." << std::endl;
-    
-    // If a sensor is loaded, print its parameters
-    if(stereoCam.get_nbsens() >= 1)
-    {
-        std::cout << "the stereo rig is made of a " << ((prCameraModel *)stereoCam.sen[0])->getName() << " camera of intrinsic parameters alpha_u = " << ((prCameraModel *)stereoCam.sen[0])->getau() << " ; alpha_v = " << ((prCameraModel *)stereoCam.sen[0])->getav() << " ; u_0 = " << ((prCameraModel *)stereoCam.sen[0])->getu0() << " ; v_0 = " << ((prCameraModel *)stereoCam.sen[0])->getv0();
-        if(((prCameraModel *)stereoCam.sen[0])->getType() == Omni)
-            std::cout << " ; xi = " << ((prOmni *)stereoCam.sen[0])->getXi();
-        std::cout << "..." << std::endl;
-    }
-
-    // If a second sensor is loaded, print its parameters and its pose relatively to the first camera
-    if(stereoCam.get_nbsens() >= 2)
-    {
-        std::cout << "... and a " << ((prCameraModel *)stereoCam.sen[1])->getName() << " camera of intrinsic parameters alpha_u = " << ((prCameraModel *)stereoCam.sen[1])->getau() << " ; alpha_v = " << ((prCameraModel *)stereoCam.sen[1])->getav() << " ; u_0 = " << ((prCameraModel *)stereoCam.sen[1])->getu0() << " ; v_0 = " << ((prCameraModel *)stereoCam.sen[1])->getv0();
-        if(((prCameraModel *)stereoCam.sen[1])->getType() == Omni)
-            std::cout << " ; xi = " << ((prOmni *)stereoCam.sen[1])->getXi();
-        std::cout << "..." << std::endl;
-   
-        std::cout << "...at camera pose cpMco = " << std::endl << stereoCam.sjMr[1] << std::endl << " relative to the first camera." << std::endl;
-    }
-#endif
+    //1. Get the parameters of the command line
 
     //Get the number of subdivision levels
-    if(argc < 3)
+    if(argc < 2)
     {
 #ifdef VERBOSE
         std::cout << "no subdivision level" << std::endl;
 #endif
         return -2;
     }
-    unsigned int subdivLevel = atoi(argv[2]);
+    unsigned int subdivLevel = atoi(argv[1]);
+
+#ifdef VERBOSE
+    std::cout << "Subdivision level: " << subdivLevel << std::endl;
+#endif
     
     //Get the lambda_g value
-    if(argc < 4)
+    if(argc < 3)
     {
 #ifdef VERBOSE
         std::cout << "no lambda_g" << std::endl;
 #endif
         return -3;
     }
-    float lambda_g = atof(argv[3]);//0.35;//0.035;//
+    float lambda_g = atof(argv[2]);
     
+#ifdef VERBOSE
+    std::cout << "lambda_g: " << lambda_g << std::endl;
+#endif
+
     //Loading the reference image with respect to which the cost function will be computed
     vpImage<unsigned char> I_req;
-    if(argc < 5)
+    if(argc < 4)
     {
 #ifdef VERBOSE
         std::cout << "no image files directory path given" << std::endl;
 #endif
         return -4;
     }
+#ifdef VERBOSE
+    std::cout << "Image files directory: " << (char *)argv[3] << std::endl;
+#endif
 
     //Get filename thanks to boost
     char myFilter[1024];
-    char *chemin = (char *)argv[4];
+    char *chemin = (char *)argv[3];
     char ext[] = "png";
-    if(argc < 6)
+    if(argc < 5)
     {
 #ifdef VERBOSE
         std::cout << "no reference image file number given" << std::endl;
 #endif
         return -5;
     }
-    unsigned int iRef = atoi(argv[5]); //72
+    unsigned int iRef = atoi(argv[4]); 
     
-    if(argc < 7)
+#ifdef VERBOSE
+    std::cout << "Reference image file number: " << iRef << std::endl;
+#endif 
+
+    if(argc < 6)
     {
 #ifdef VERBOSE
         std::cout << "no initial image file number given" << std::endl;
 #endif
         return -6;
     }
-    unsigned int i0 = atoi(argv[6]);//1;//0;
+    unsigned int i0 = atoi(argv[5]);//1;//0;
+
+#ifdef VERBOSE
+    std::cout << "Initial image file number: " << i0 << std::endl;
+#endif
     
-    if(argc < 8)
+    if(argc < 7)
     {
 #ifdef VERBOSE
         std::cout << "no image files count given" << std::endl;
 #endif
         return -7;
     }
-    unsigned int i360 = atoi(argv[7]);
-    
-    if(argc < 9)
+    unsigned int i360 = atoi(argv[6]);
+
+#ifdef VERBOSE
+    std::cout << "images files count: " << i360 << std::endl;
+#endif
+
+    if(argc < 8)
     {
 #ifdef VERBOSE
         std::cout << "no image sequence step given" << std::endl;
 #endif
         return -8;
     }
-    unsigned int iStep = atoi(argv[8]);
+    unsigned int iStep = atoi(argv[7]);
 
+#ifdef VERBOSE
+    std::cout << "Image sequence step :" << iStep << std::endl;
+#endif
     
-    sprintf(myFilter, "%06d.*\\.%s", iRef, ext);
+    sprintf(myFilter, "e_%06d.*\\.%s", iRef, ext);
     
     boost::filesystem::path dir(chemin);
     boost::regex my_filter( myFilter );
@@ -216,11 +188,11 @@ int main(int argc, char **argv)
     disp.init(I_req, 25, 25, "I_req");
     vpDisplay::display(I_req);
     vpDisplay::flush(I_req);
-    
+
     //lecture de l'image "masque"
     //Chargement du masque
     vpImage<unsigned char> Mask;
-    if(argc < 10)
+    if(argc < 9)
     {
 #ifdef VERBOSE
         std::cout << "no mask image given" << std::endl;
@@ -229,20 +201,24 @@ int main(int argc, char **argv)
     }
     else
     {
+#ifdef VERBOSE
+    std::cout << "tries to read mask file: " << argv[8] << std::endl;
+#endif
         try
         {
-            vpImageIo::read(Mask, argv[9]);
+            vpImageIo::read(Mask, argv[8]);
         }
         catch(vpException e)
         {
             std::cout << "unable to load mask file" << std::endl;
             Mask.resize(I_req.getHeight(), I_req.getWidth(), 255);
         }
+        
     }
     
     //nombre de coups d'essai pour definir r_0
     unsigned int nbTries = 1;
-    if(argc < 11)
+    if(argc < 10)
     {
 #ifdef VERBOSE
         std::cout << "no initial number of tries given" << std::endl;
@@ -250,11 +226,15 @@ int main(int argc, char **argv)
         //return -9;
     }
     else
-        nbTries = atoi(argv[10]);
-    
+        nbTries = atoi(argv[9]);
+        
+#ifdef VERBOSE
+    std::cout << "Number of initial tries: " << nbTries << std::endl;
+#endif
+
     //type d'estimation (0 : gyro pur ; 1 : odometrie ; 2 : odometrie a images cles)
     unsigned int estimationType = 0;
-    if(argc < 12)
+    if(argc < 11)
     {
 #ifdef VERBOSE
         std::cout << "no estimation type given" << std::endl;
@@ -262,11 +242,15 @@ int main(int argc, char **argv)
         //return -9;
     }
     else
-        estimationType = atoi(argv[11]);
+        estimationType = atoi(argv[10]);
+
+#ifdef VERBOSE
+    std::cout << "Estimation type: " << ((estimationType==0)?"pure gyro":((estimationType==1)?"odometry-like":"odometry with key images")) << std::endl;
+#endif
     
     //stabilisation de la sequence
     unsigned int stabilisation = 0;
-    if(argc < 13)
+    if(argc < 12)
     {
 #ifdef VERBOSE
         std::cout << "no stabilisation parameter given" << std::endl;
@@ -274,11 +258,14 @@ int main(int argc, char **argv)
         //return -9;
     }
     else
-        stabilisation = atoi(argv[12]);
+        stabilisation = atoi(argv[11]);
+#ifdef VERBOSE
+    std::cout << "Sequence stabilization: " << ((stabilisation==1)?"On":"Off") << std::endl;
+#endif
 
 		//truncated Gaussians
     unsigned int truncGauss = 0;
-    if(argc < 14)
+    if(argc < 13)
     {
 #ifdef VERBOSE
         std::cout << "no Gaussian truncature parameter given" << std::endl;
@@ -286,12 +273,15 @@ int main(int argc, char **argv)
         //return -9;
     }
     else
-        truncGauss = atoi(argv[13]);
-    
+        truncGauss = atoi(argv[12]);
+#ifdef VERBOSE
+    std::cout << "Truncated Gaussians: " << ((truncGauss==1)?"On":"Off") << std::endl;
+#endif
+
     //fichier avec les poses initiales r_0
     bool ficInit = false;
     std::vector<vpPoseVector> v_pv_init;
-    if(argc < 15)
+    if(argc < 14)
     {
 #ifdef VERBOSE
         std::cout << "no initial poses file given" << std::endl;
@@ -300,17 +290,38 @@ int main(int argc, char **argv)
     }
     else
     {
-        ficInit = true;
+#ifdef VERBOSE
+    std::cout << "Tries to read pose file: " << argv[13] << std::endl;
+#endif        
 
-        std::ifstream ficPosesInit(argv[14]);
-        vpPoseVector r;
-        while(!ficPosesInit.eof())
-        {
-            ficPosesInit >> r[0] >> r[1] >> r[2] >> r[3] >> r[4] >> r[5];
-            v_pv_init.push_back(r);
+        std::ifstream ficPosesInit(argv[13]);
+        
+        if(ficPosesInit.is_open())
+        {      
+	        ficInit = true;
+        
+		      vpPoseVector r;
+		      while(!ficPosesInit.eof())
+		      {
+		          ficPosesInit >> r[0] >> r[1] >> r[2] >> r[3] >> r[4] >> r[5];
+		          r[0] = r[1] = r[2] = 0.; // this is to ensure ignoring the translations
+//		          ficPosesInit >> r[3] >> r[4] >> r[5];
+		          v_pv_init.push_back(r);
+		      }
+		      ficPosesInit.close();
         }
-        ficPosesInit.close();
+        else
+        {
+         ficInit = false;
+#ifdef VERBOSE
+    std::cout << "Pose file does not exist" << std::endl;
+#endif
+        }
+        
     }
+#ifdef VERBOSE
+    std::cout << "end parameters list" << std::endl;
+#endif
 
     
     // 2. Gyro objects initialization, considering the pose estimation of a spherical camera from the feature set of photometric Gaussian mixture 3D samples compared thanks to the SSD
@@ -331,8 +342,8 @@ int main(int argc, char **argv)
     //En image spherique
     //initialisation de l'estimation d'orientation
     prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, prRegularlySampledCSImage >, prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > > gyro(1e-6);
-//    bool dofs[6] = {false, false, false, true, false, false}; //"compas"
-    bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
+    bool dofs[6] = {false, false, false, false, true, false}; //"compas"
+//    bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
 
     gyro.setdof(dofs[0], dofs[1], dofs[2], dofs[3], dofs[4], dofs[5]);
 
@@ -385,6 +396,13 @@ int main(int argc, char **argv)
     bool robust = false;//true;//
     vpImage<unsigned char> I_des;
     
+    vpHomogeneousMatrix userFrameMiRef;
+    if(ficInit)
+    {
+        vpPoseVector rRef = v_pv_init[iRef];//nbPass];
+        userFrameMiRef.buildFrom(rRef);
+    }
+    
     //3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
     //double angle = -177.5*M_PI/180.;
     prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, prRegularlySampledCSImage > fSet_des;
@@ -431,7 +449,7 @@ int main(int argc, char **argv)
             }
         }
         
-        sprintf(myFilter, "%06d.*\\.%s", imNum, ext);
+        sprintf(myFilter, "e_%06d.*\\.%s", imNum, ext);
         
         my_filter.set_expression(myFilter);
         
@@ -465,7 +483,9 @@ int main(int argc, char **argv)
         // if there is a file provided as initial poses, they are used instead of other strategies
         if(ficInit)
         {
-            r = v_pv_init[nbPass];
+            r = v_pv_init[imNum];//nbPass];
+            vpHomogeneousMatrix M(r);
+            r.buildFrom((M*userFrameMiRef.inverse()).inverse());
             std::cout << "r init : " << r.t() << std::endl;
         }
         else
