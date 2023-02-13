@@ -483,20 +483,20 @@ int main(int argc, char **argv)
         // if there is a file provided as initial poses, they are used instead of other strategies
         if(ficInit)
         {
-            r = v_pv_init[imNum];//nbPass];
+            r = v_pv_init[imNum];
             vpHomogeneousMatrix M(r);
             r.buildFrom((M*userFrameMiRef.inverse()).inverse());
             std::cout << "r init : " << r.t() << std::endl;
         }
-        else
-        {
+//        else
+//        {
             // trying to select the best initial 3D orientation guess
             if(nbTries > 1)
             {
-                vpPoseVector r_best_init;
+                vpPoseVector r_best_init, r_try;
                 double err_min_init = 1e20;
                 double angle[3]={0,0,0}, pasAngulaire;
-                vpHomogeneousMatrix dMc;
+                vpHomogeneousMatrix dMc_test, dMc_init(r), dMc;
                 double err0;
                 pasAngulaire = 2.0*M_PI / nbTries;
 
@@ -518,24 +518,28 @@ int main(int argc, char **argv)
                 }
                 for(int iTry0 = 0 ; iTry0 < nbTriesPerDOF[0] ; iTry0++, angle[0]+=pasAngulaire)
                 {
-                    r[3] = angle[0];
+                    r_try[3] = angle[0];
                     if(dofs[4])
                         angle[1] = -pasAngulaire*floor(nbTries*0.5);
                     else
                         angle[1] = 0;
                     for(int iTry1 = 0 ; iTry1 < nbTriesPerDOF[1] ; iTry1++, angle[1]+=pasAngulaire)
                     {
-                        r[4] = angle[1];
+                        r_try[4] = angle[1];
                         if(dofs[5])
                             angle[2] = -pasAngulaire*floor(nbTries*0.5);
                         else
                             angle[2] = 0;
                         for(int iTry2 = 0 ; iTry2 < nbTriesPerDOF[2] ; iTry2++, angle[2]+=pasAngulaire)
                         {
-                            r[5] = angle[2];
+                        
+                            r_try[5] = angle[2];
                             
-                            dMc.buildFrom(r);
-                            fSet_req.update(dMc);
+                            std::cout << "essai: " << r_try.t() << std::endl;
+                            
+                            dMc.buildFrom(r_try);
+                            dMc_test = dMc*dMc_init;
+                            fSet_req.update(dMc_test);
                             
                             prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > errorComputer(fSet_req, fSet_des, robust);
                             prPhotometricGMS<prCartesian3DPointVec> GS_error = errorComputer.getRobustCost();
@@ -544,14 +548,15 @@ int main(int argc, char **argv)
                             if(err0 < err_min_init)
                             {
                                 err_min_init = err0;
-                                r_best_init = r;
+                                //r_best_init = r_try;
+                                r_best_init.buildFrom(dMc_test);
                             }
                         }
                     }
                 }
                 r = r_best_init;
             }
-        }
+//        }
         
         // register the request feature set over the desired one and save the optimal MPP-SSD
         err.push_back(gyro.track(fSet_des, r, robust));
