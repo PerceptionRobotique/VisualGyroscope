@@ -16,6 +16,7 @@
  \param stabilization if 1, outputs the rotation compensated dualfisheye image
  \param truncGauss truncated Gaussian domain: 1 yes (+ or - 3 lambda_g at most), 0 no (default)
  \param ficPosesInit the text file of initial poses (one pose line per image to process)
+ \param ficPosesInit_i0 the first image index of the sequence within the text file of initial poses (default 0)
  *
  \author Guillaume CARON
  \version 0.2
@@ -319,6 +320,25 @@ int main(int argc, char **argv)
         }
         
     }
+    
+		unsigned int ficPosesInit_i0;
+    if(argc < 15)
+    {
+#ifdef VERBOSE
+        std::cout << "no initial image file number within pose file given. Set to 0." << std::endl;
+#endif
+//        return -6;
+    }
+		else
+     	ficPosesInit_i0 = atoi(argv[14]);//1;//0;
+
+		if(ficPosesInit_i0 > iRef)
+			ficPosesInit_i0 = 0;
+
+#ifdef VERBOSE
+    std::cout << "Initial image file number within pose file: " << ficPosesInit_i0 << std::endl;
+#endif
+    
 #ifdef VERBOSE
     std::cout << "end parameters list" << std::endl;
 #endif
@@ -399,8 +419,11 @@ int main(int argc, char **argv)
     vpHomogeneousMatrix userFrameMiRef;
     if(ficInit)
     {
-        vpPoseVector rRef = v_pv_init[iRef];//nbPass];
+    		std::cout << "ref pose number in ficPose: " << iRef-ficPosesInit_i0 << std::endl; 
+				std::cout << "rRef: " << v_pv_init[iRef-ficPosesInit_i0] << std::endl;
+        vpPoseVector rRef = v_pv_init[iRef-ficPosesInit_i0];
         userFrameMiRef.buildFrom(rRef);
+				//userFrameMiRef = userFrameMiRef.inverse();
     }
     
     //3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
@@ -483,8 +506,10 @@ int main(int argc, char **argv)
         // if there is a file provided as initial poses, they are used instead of other strategies
         if(ficInit)
         {
-            r = v_pv_init[imNum];
+            r = v_pv_init[imNum-ficPosesInit_i0];
+						std::cout << "rCur: " << v_pv_init[imNum-ficPosesInit_i0] << std::endl;
             vpHomogeneousMatrix M(r);
+						//M = M.inverse();
             r.buildFrom((M*userFrameMiRef.inverse()).inverse());
             std::cout << "r init : " << r.t() << std::endl;
         }
@@ -559,7 +584,7 @@ int main(int argc, char **argv)
 //        }
         
         // register the request feature set over the desired one and save the optimal MPP-SSD
-        err.push_back(gyro.track(fSet_des, r, robust));
+        err.push_back(gyro.track(fSet_des, r, robust)); //0);//
     
         v_temps.push_back(vpTime::measureTimeMs()-temps);
         std::cout << "Pass " << nbPass << " time : " << v_temps[nbPass] << " ms" << std::endl;
