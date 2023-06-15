@@ -584,7 +584,7 @@ int main(int argc, char **argv)
 //        }
         
         // register the request feature set over the desired one and save the optimal MPP-SSD
-        err.push_back(gyro.track(fSet_des, r, robust)); //0);//
+        err.push_back(gyro.track(fSet_des, r, 1.0, robust)); //0);//
     
         v_temps.push_back(vpTime::measureTimeMs()-temps);
         std::cout << "Pass " << nbPass << " time : " << v_temps[nbPass] << " ms" << std::endl;
