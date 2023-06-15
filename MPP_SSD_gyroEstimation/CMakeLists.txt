@@ -27,10 +27,16 @@ project(MPP_SSD_gyroEstimation)
 
 cmake_minimum_required(VERSION 2.6)
 
-find_package(PER REQUIRED per_core per_core_extended per_io per_features per_sensor_pose_estimation per_estimation)
+find_package(PER REQUIRED per_core per_io per_features per_sensor_pose_estimation per_estimation)
 if(PER_FOUND)
 	include(${PER_USE_FILE})
 endif(PER_FOUND)
+
+# ViSP (to do: list modules only)
+find_package(VISP REQUIRED)
+if(VISP_FOUND)
+	include(${VISP_USE_FILE})
+endif(VISP_FOUND)
 
 # Boost
 FIND_PACKAGE(Boost REQUIRED)
@@ -50,4 +56,8 @@ foreach(cpp ${MPPSSDgyroEstim_cpp})
   endif()
 endforeach()
 
-target_link_libraries(MPPSSDgyroEstim libboost_system-mt.dylib libboost_filesystem-mt.dylib libboost_regex-mt.dylib)
+#target_link_libraries(MPPSSDgyroEstim libboost_system-mt.dylib libboost_filesystem-mt.dylib libboost_regex-mt.dylib)
+
+#target_link_libraries(MPPSSDgyroEstim libboost_system-mt.so libboost_filesystem-mt.so libboost_regex-mt.so)
+
+target_link_libraries(MPPSSDgyroEstim libboost_system.so libboost_filesystem.so libboost_regex.so)

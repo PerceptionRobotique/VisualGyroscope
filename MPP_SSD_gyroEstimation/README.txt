@@ -27,7 +27,7 @@
 3. open the project in build or use make in the latter directory to build the exe file
 4. run the program from the command line at the project top directory, considering it includes the 2017_MPP_SSD_gyroEstimation_media directory, with arguments as:
 
-.build/Release/MPPSSDgyroEstim ./2017_MPP_SSD_gyroEstimation_media/calibration/calib_subdiv3.xml 3 0.325 ./2017_MPP_SSD_gyroEstimation_media/images_subdiv3/ 8790 8790 8890 1 ./2017_MPP_SSD_gyroEstimation_media/images_subdiv3/maskFull.png 1 1 1
+./build/Release/MPPSSDgyroEstim ./2017_MPP_SSD_gyroEstimation_media/calibration/calib_subdiv3.xml 3 0.325 ./2017_MPP_SSD_gyroEstimation_media/images_subdiv3/ 8790 8790 8890 1 ./2017_MPP_SSD_gyroEstimation_media/images_subdiv3/maskFull.png 1 1 1
 
 that are, in the reading order:
 - the dual fisheye camera calibration xml file

@@ -13,7 +13,7 @@
  \param iStep the image sequence looping step
  \param Mask the image file of the mask (white pixels are to be considered whereas black pixels are not)
  \param nbTries the number of tested initial guesses for the optimization (the one leading to the lower MPP-SSD is kept)
- \param estimationType selects which estimation type to consider between 1 pure gyro, 2 incremental gyro, 3 incremental fyro with key images
+ \param estimationType selects which estimation type to consider between 0 pure gyro, 1 incremental gyro, 2 incremental fyro with key images
  \param stabilization if 1, outputs the rotation compensated dualfisheye image
  \param ficPosesInit the text file of initial poses (one pose line per image to process)
  *
@@ -311,7 +311,7 @@ int main(int argc, char **argv)
     
     //En image spherique
     //initialisation de l'estimation d'orientation
-    prPoseSphericalEstim<prFeaturesSet<prPhotometricGMS<prCartesian3DPointVec> >, prSSDCmp<prPhotometricGMS<prCartesian3DPointVec> > > gyro;
+    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, prRegularlySampledCSImage >, prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > > gyro;
 //    bool dofs[6] = {false, false, false, true, false, false}; //"compas"
     bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
 
@@ -325,7 +325,7 @@ int main(int argc, char **argv)
     IS_req.toAbsZN(); //prepare spherical pixels intensities for the MPP cost function expression constraints
     prRegularlySampledCSImage<float> GS(subdivLevel); //contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
     
-    prFeaturesSet<prPhotometricGMS<prCartesian3DPointVec> > fSet_req;
+    prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>,prRegularlySampledCSImage > fSet_req;
     prPhotometricGMS<prCartesian3DPointVec> GS_sample_req(lambda_g);
     // TODO : calculer en parallele un fSet_req avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
     fSet_req.buildFrom(IS_req, GS, GS_sample_req);
@@ -367,7 +367,7 @@ int main(int argc, char **argv)
     
     //3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
     //double angle = -177.5*M_PI/180.;
-    prFeaturesSet<prPhotometricGMS<prCartesian3DPointVec> > fSet_des;
+    prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, prRegularlySampledCSImage > fSet_des;
     double seuilErr = 0.0325; //0.015; //0.0077;// // OK pour 0,325 seul et subdiv3
     while(!clickOut && (imNum <= i360))
     {
@@ -496,7 +496,7 @@ int main(int argc, char **argv)
                             dMc.buildFrom(r);
                             fSet_req.update(dMc);
                             
-                            prSSDCmp<prPhotometricGMS<prCartesian3DPointVec> > errorComputer(fSet_req, fSet_des, robust);
+                            prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > errorComputer(fSet_req, fSet_des, robust);
                             prPhotometricGMS<prCartesian3DPointVec> GS_error = errorComputer.getRobustCost();
                             err0 = GS_error.getGMS();
                             
@@ -513,7 +513,7 @@ int main(int argc, char **argv)
         }
         
         // register the request feature set over the desired one and save the optimal MPP-SSD
-        err.push_back(gyro.track(fSet_des, r, robust));
+        err.push_back(gyro.track(fSet_des, r, 1.0, robust));
     
         v_temps.push_back(vpTime::measureTimeMs()-temps);
         std::cout << "Pass " << nbPass << " time : " << v_temps[nbPass] << " ms" << std::endl;
@@ -541,7 +541,7 @@ int main(int argc, char **argv)
         }
         s.str("");
         s.setf(std::ios::right, std::ios::adjustfield);
-        s << chemin << "/" << std::setfill('0') << std::setw(6) << imNum << ".jpg";
+        s << chemin << "/rotComp/" << std::setfill('0') << std::setw(6) << imNum << ".png";
         filename = s.str();
         vpImageIo::write(I_r, filename);
         
