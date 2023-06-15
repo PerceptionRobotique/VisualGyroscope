@@ -38,11 +38,17 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-find_package(PER REQUIRED per_core per_core_extended per_io per_features per_sensor_pose_estimation per_estimation)
+find_package(PER REQUIRED per_core per_io per_features per_sensor_pose_estimation per_estimation)
 
 if(PER_FOUND)
   include(${PER_USE_FILE})
 endif(PER_FOUND)
+
+# ViSP (to do: list modules only)
+find_package(VISP REQUIRED)
+if(VISP_FOUND)
+	include(${VISP_USE_FILE})
+endif(VISP_FOUND)
 
 # Boost
 FIND_PACKAGE(Boost REQUIRED)
