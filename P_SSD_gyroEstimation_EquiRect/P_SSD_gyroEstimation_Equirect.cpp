@@ -35,6 +35,7 @@
 
 #include <visp/vpImage.h>
 #include <visp/vpImageIo.h>
+#include <visp/vpImageTools.h>
 
 #include <visp/vpTime.h>
 
@@ -511,7 +512,7 @@ int main(int argc, char **argv)
 
                         prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prEquirectangular>> errorComputer(fSet_req, fSet_des, robust);
                         prIntensity<prCartesian3DPointVec, prEquirectangular> GS_error = errorComputer.getRobustCost();
-                        err0 = GS_error.getVal();
+                        err0 = GS_error.getGMS();//Val();
 
                         if (err0 < err_min_init)
                         {

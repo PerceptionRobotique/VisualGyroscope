@@ -529,7 +529,7 @@ int main(int argc, char **argv)
 
                             prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>> errorComputer(fSet_req, fSet_des, robust);
                             prIntensity<prCartesian3DPointVec, prStereoModel> GS_error = errorComputer.getCost();
-                            err0 = GS_error.getVal();
+                            err0 = GS_error.getGMS();//Val();
 
                             if (err0 < err_min_init)
                             {
