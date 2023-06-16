@@ -1,9 +1,8 @@
 # Visual Gyroscope
 
-![https://img.shields.io/badge/LibPeR-0.1.1-green](https://github.com/PerceptionRobotique/libPeR_base/releases/tag/v0.1.1)
-![https://img.shields.io/badge/ViSP-3.5-green]()
-![https://img.shields.io/badge/Opencv-4.2-green]()
-![https://img.shields.io/badge/Boost-1.71.0-green]()
+[![LibPeR](https://img.shields.io/badge/LibPeR-0.1.1-green)](https://github.com/PerceptionRobotique/libPeR_base/releases/tag/v0.1.1)
+[![ViSP](https://img.shields.io/badge/ViSP-3.5-green)](https://visp.inria.fr/)
+[![OpenCV](https://img.shields.io/badge/OpenCV-4.2-green)](https://opencv.org/)
 
 **Direct visual orientation estimation of omnidirectional images**
 
@@ -20,7 +19,7 @@ Summary of available methods and omnidirectional image types:
 
 ### Photometric Visual Gyroscope, Dual fisheye
 
-OmniCV 2022 CVPR Workshop [**[paper]**](https://openaccess.thecvf.com/content/CVPR2022W/OmniCV/papers/Andre_Photometric_Visual_Gyroscope_for_Full-View_Spherical_Camera_CVPRW_2022_paper.pdf):
+**OmniCV 2022 CVPR Workshop** [**[paper]**](https://openaccess.thecvf.com/content/CVPR2022W/OmniCV/papers/Andre_Photometric_Visual_Gyroscope_for_Full-View_Spherical_Camera_CVPRW_2022_paper.pdf):
 
 > André, A. N., & Caron, G. (2022). Photometric Visual Gyroscope for Full-View Spherical Camera. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 5232-5235).
 
@@ -30,7 +29,7 @@ Example available in folder **[P_SSD_gyroEstimation/](P_SSD_gyroEstimation/)**
 
 ### Photometric Visual Gyroscope, Equirectangular
 
-OmniCV 2023 CVPR Workshop [**[paper]**](https://openaccess.thecvf.com/content/CVPR2023W/OmniCV/papers/Berenguel-Baeta_Visual_Gyroscope_Combination_of_Deep_Learning_Features_and_Direct_Alignment_CVPRW_2023_paper.pdf):
+**OmniCV 2023 CVPR Workshop** [**[paper]**](https://openaccess.thecvf.com/content/CVPR2023W/OmniCV/papers/Berenguel-Baeta_Visual_Gyroscope_Combination_of_Deep_Learning_Features_and_Direct_Alignment_CVPRW_2023_paper.pdf):
 
 > Berenguel-Baeta, B., André, A. N., Caron, G., Bermudez-Cameo, J., & Guerrero, J. J. (2023). Visual Gyroscope: Combination of Deep Learning Features and Direct Alignment for Panoramic Stabilization. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 6444-6447).
 
@@ -40,7 +39,7 @@ Example available in folder **[P_SSD_gyroEstimation_EquiRect/](P_SSD_gyroEstimat
 
 ### Mixture of Photometric Potential Visual Gyroscope, Dual fisheye
 
-ICRA 2018 [**[paper]**](https://hal.science/hal-01716939/file/CaMo_ICRA18.pdf)
+**ICRA 2018** [**[paper]**](https://hal.science/hal-01716939/file/CaMo_ICRA18.pdf)
 
 > Caron, G., & Morbidi, F. (2018, May). Spherical visual gyroscope for autonomous robots using the mixture of photometric potentials. In 2018 IEEE International Conference on Robotics and Automation (ICRA) (pp. 820-827). IEEE.
 
@@ -50,9 +49,17 @@ Example available in folder **[MPP_SSD_gyroEstimation/](MPP_SSD_gyroEstimation/)
 
 ### Mixture of Photometric Potential Visual Gyroscope, Equirectangular
 
+**OmniCV 2023 CVPR Workshop** [**[paper]**](https://openaccess.thecvf.com/content/CVPR2023W/OmniCV/papers/Berenguel-Baeta_Visual_Gyroscope_Combination_of_Deep_Learning_Features_and_Direct_Alignment_CVPRW_2023_paper.pdf):
+
+> Berenguel-Baeta, B., André, A. N., Caron, G., Bermudez-Cameo, J., & Guerrero, J. J. (2023). Visual Gyroscope: Combination of Deep Learning Features and Direct Alignment for Panoramic Stabilization. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 6444-6447).
+
 Based on **equirectangular omnidirectional images**, considers each vertex of the spherical mesh as a mixture of photometric potentials and minimizes the overall cost to retrieve the orientation.
 
 Example available in folder **[MPP_SSD_gyroEstimation_EquiRect/](MPP_SSD_gyroEstimation_EquiRect/)**
+
+OmniCV 2023 CVPR Workshop [**[paper]**](https://openaccess.thecvf.com/content/CVPR2023W/OmniCV/papers/Berenguel-Baeta_Visual_Gyroscope_Combination_of_Deep_Learning_Features_and_Direct_Alignment_CVPRW_2023_paper.pdf):
+
+> Berenguel-Baeta, B., André, A. N., Caron, G., Bermudez-Cameo, J., & Guerrero, J. J. (2023). Visual Gyroscope: Combination of Deep Learning Features and Direct Alignment for Panoramic Stabilization. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 6444-6447).
 
 ## How to use
 
@@ -90,6 +97,11 @@ To perform the visual orientation estimation, the examples rely on some common p
   - 1 for odometry
   - 2 for odometry with key images
 - `stabilization` 1 to compensate and stabilize the output computed images or 0 to simply save output unstabilized images
+
+Some parameters are specific to the image used or to the method:
+
+- `lambdaG` Sets the Gaussian expansion for `MPP`-based methods
+- `calibFile` provides the intrinsic parameters of the dual fisheye camera, as a `.xml` file
 
 ```
 Copyright (C) 2017-2023 by MIS lab (UPJV). All rights reserved.
