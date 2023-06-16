@@ -39,7 +39,6 @@
 
 #include <visp/vpImage.h>
 #include <visp/vpImageIo.h>
-#include <visp/vpImageTools.h>
 
 #include <visp/vpTime.h>
 
@@ -47,7 +46,7 @@
 
 #define INTERPTYPE prInterpType::IMAGEPLANE_BILINEAR
 
-//#define VERBOSE
+// #define VERBOSE
 
 /*!
  * \fn main()
@@ -82,14 +81,12 @@ int main(int argc, char **argv)
 
     // Create an empty rig
     prStereoModel stereoCam(2);
-    prStereoModel stereoCamSmall(2);
 
     // Load the stereo rig parameters from the XML file
     {
         prStereoModelXML fromFile(argv[1]);
 
         fromFile >> stereoCam;
-        fromFile >> stereoCamSmall;
 
         /*
          //Indicatif : A ameliorer en integrant les coef de dist dans le XML...
@@ -216,7 +213,7 @@ int main(int argc, char **argv)
 
     // lecture de l'image "masque"
     // Chargement du masque
-    vpImage<unsigned char> Mask, MaskSmall;
+    vpImage<unsigned char> Mask;
     if (argc < 9)
     {
 #ifdef VERBOSE
@@ -296,11 +293,20 @@ int main(int argc, char **argv)
         }
         ficPosesInit.close();
     }
+
     // 2. Gyro objects initialization, considering the pose estimation of a spherical camera from the feature set of photometric Gaussian mixture 3D samples compared thanks to the SSD
+
+    /*
+    //En image plane
+    prPhotometricGMS<pr2DCartesianPointVec> G_sample;
+    pr2DCartesianPointVec u_g;
+    G_sample.buildFrom(I_req, u_g, lambda_g);
+    */
 
     // En image spherique
     // initialisation de l'estimation d'orientation
-    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>, prRegularlySampledCSImage>, prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>>> gyro(1e-9);
+    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>, prRegularlySampledCSImage>, prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>>> gyro;
+    //    bool dofs[6] = {false, false, false, true, false, false}; //"compas"
     bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
 
     gyro.setdof(dofs[0], dofs[1], dofs[2], dofs[3], dofs[4], dofs[5]);
@@ -315,7 +321,6 @@ int main(int argc, char **argv)
     prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>, prRegularlySampledCSImage> fSet_req;
     prIntensity<prCartesian3DPointVec, prStereoModel> GS_sample_req;
     GS_sample_req.setSensor(&stereoCam);
-
     // TODO : calculer en parallele un fSet_req avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
     fSet_req.buildFrom(IS_req, GS, GS_sample_req);
 
@@ -323,7 +328,6 @@ int main(int argc, char **argv)
 
     prIntensity<prCartesian3DPointVec, prStereoModel> GS_sample;
     GS_sample.setSensor(&stereoCam);
-
     std::cout << "nb features : " << fSet_req.set.size() << std::endl;
 
     vpDisplayX disp2;
@@ -360,46 +364,6 @@ int main(int argc, char **argv)
     // double angle = -177.5*M_PI/180.;
     prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>, prRegularlySampledCSImage> fSet_des;
     double seuilErr = 0.0325; // 0.015; //0.0077;// // OK pour 0,325 seul et subdiv3
-
-    // Adjust the images output size to match the number of spherical features
-    int numberFeatSubdiv[] = {0, 0, 0, 642, 2562, 10242};
-    double divideScaleFac = sqrt((double)(I_req.getHeight() * I_req.getWidth()) / (double)numberFeatSubdiv[subdivLevel]);
-    // divideScaleFac = 1;
-    std::cout << "subdiv level: " << subdivLevel << std::endl;
-    std::cout << "Divide factor: " << divideScaleFac << std::endl;
-    vpImageTools::vpImageInterpolationType resizeType = vpImageTools::INTERPOLATION_NEAREST;
-    int newHeight, newWidth;
-    if (divideScaleFac != 1)
-    {
-
-        for (int camNum = 0; camNum < 2; camNum++)
-        {
-            double u0 = ((prOmni *)(stereoCam.sen[camNum]))->getu0() / divideScaleFac;
-            double v0 = ((prOmni *)(stereoCam.sen[camNum]))->getv0() / divideScaleFac;
-            double au = ((prOmni *)(stereoCam.sen[camNum]))->getau() / divideScaleFac;
-            double av = ((prOmni *)(stereoCam.sen[camNum]))->getav() / divideScaleFac;
-            ((prOmni *)(stereoCamSmall.sen[camNum]))->setPrincipalPoint(u0, v0);
-            ((prOmni *)(stereoCamSmall.sen[camNum]))->setPixelRatio(au, av);
-        }
-
-        newHeight = ceil((double)I_req.getHeight() / divideScaleFac);
-        newWidth = ceil((double)I_req.getWidth() / divideScaleFac);
-
-        if (newWidth % 2 != 0)
-        {
-            newWidth++;
-        }
-        if (newHeight % 2 != 0)
-        {
-            newHeight++;
-        }
-
-        std::cout << "new width " << newWidth << ", new height " << newHeight << std::endl;
-
-        MaskSmall.resize(newHeight, newWidth);
-        vpImageTools::resize(Mask, MaskSmall, resizeType);
-    }
-
     while (!clickOut && (imNum <= i360))
     {
         temps = vpTime::measureTimeMs();
@@ -466,7 +430,6 @@ int main(int argc, char **argv)
         prRegularlySampledCSImage<unsigned char> IS_des(subdivLevel);
         IS_des.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
         IS_des.buildFromTwinOmni(I_des, stereoCam, &Mask);
-        // IS_des.toAbsZN();
 
         // calculer en parallele un fSet_des avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
         fSet_des.buildFrom(IS_des, GS, GS_sample, poseJacobianCompute); // Goulot !
@@ -528,8 +491,8 @@ int main(int argc, char **argv)
                             fSet_req.update(dMc);
 
                             prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prStereoModel>> errorComputer(fSet_req, fSet_des, robust);
-                            prIntensity<prCartesian3DPointVec, prStereoModel> GS_error = errorComputer.getCost();
-                            err0 = GS_error.getGMS();//Val();
+                            prIntensity<prCartesian3DPointVec, prStereoModel> GS_error = errorComputer.getRobustCost();
+                            err0 = GS_error.getGMS();
 
                             if (err0 < err_min_init)
                             {
@@ -544,7 +507,7 @@ int main(int argc, char **argv)
         }
 
         // register the request feature set over the desired one and save the optimal MPP-SSD
-        err.push_back(gyro.track(fSet_des, r, robust));
+        err.push_back(gyro.track(fSet_des, r, 1.0, robust));
 
         v_temps.push_back(vpTime::measureTimeMs() - temps);
         std::cout << "Pass " << nbPass << " time : " << v_temps[nbPass] << " ms" << std::endl;
@@ -559,16 +522,16 @@ int main(int argc, char **argv)
 
         clickOut = vpDisplay::getClick(I_req, false);
 
-        vpImage<unsigned char> I_r(newHeight, newWidth);
+        vpImage<unsigned char> I_r(I_des.getHeight(), I_des.getWidth());
         if (stabilisation)
         {
             vpPoseVector ir;
             ir.buildFrom(vpHomogeneousMatrix(r_to_save).inverse());
-            IS_des.toTwinOmni(I_r, ir, stereoCamSmall, &MaskSmall);
+            IS_des.toTwinOmni(I_r, ir, stereoCam, &Mask);
         }
         else
         {
-            IS_req.toTwinOmni(I_r, r, stereoCamSmall, &MaskSmall);
+            IS_req.toTwinOmni(I_r, r, stereoCam, &Mask);
         }
         s.str("");
         s.setf(std::ios::right, std::ios::adjustfield);
@@ -578,6 +541,7 @@ int main(int argc, char **argv)
 
         imNum += iStep;
         nbPass++;
+        // angle += 2.5*M_PI/180.;
     }
 
     // 4. Save the MMP-SSD at optimal poses, optimal poses, processing times and key images numbers to files

@@ -34,7 +34,7 @@ echo "Variables initialization"
 SubdivLvl=5
 
 # 2. Directory containing the images to treat
-imDir=/home/antoine/Documents/data/SVMISplus_dataset/SVMISplus_er_pano/Matrice600Pro/SixDOFs/Images_Equirectangular/
+imDir=../../../Matrice600Pro/SixDOFs/Images_Equirectangular/
 
 # 3. Name of the first reference image
 iRef=1074
@@ -51,7 +51,7 @@ i360=2798
 iStep=1
 
 # 7. Image mask to avoid taking account of unused pixel, white pixels of this mask are taken in account, black are not
-mask=/home/antoine/Documents/data/SVMISplus_dataset/SVMISplus_er_pano/Matrice600Pro/SixDOFs/mask_hexarotor.png
+mask=../../../Matrice600Pro/SixDOFs/mask_hexarotor.png
 # mask=./../../2021_MPP_SSD_gyroEstimation_EquiRect_media/images_full/maskFull.png
 
 # 8. Number of tested initial guesses
@@ -64,7 +64,7 @@ estimationType=0
 stabilization=1
 
 # 12. If initial poses file
-poseFile=/home/antoine/Documents/Github/libPeR_routines/routines_simple_PVG_Bruno/common/2023_04_10_sky-top_MPP_1LastDoF_lg0p325_2triesForInit-poses_1074_0_2798.txt
+poseFile=../../../common/2023_04_10_sky-top_MPP_1LastDoF_lg0p325_2triesForInit-poses_1074_0_2798.txt
 
 # Building the main programm
 mkdir build

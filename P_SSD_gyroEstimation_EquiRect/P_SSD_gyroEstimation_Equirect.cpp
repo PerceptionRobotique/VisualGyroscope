@@ -35,7 +35,6 @@
 
 #include <visp/vpImage.h>
 #include <visp/vpImageIo.h>
-#include <visp/vpImageTools.h>
 
 #include <visp/vpTime.h>
 
@@ -83,7 +82,7 @@ int main(int argc, char **argv)
 #endif
 
     // Loading the reference image with respect to which the cost function will be computed
-    vpImage<unsigned char> I_req_full;
+    vpImage<unsigned char> I_req;
     if (argc < 3)
     {
 #ifdef VERBOSE
@@ -164,7 +163,7 @@ int main(int argc, char **argv)
         if (boost::regex_match(name, my_filter))
         {
             std::cout << iter->path().string() << " loaded" << std::endl;
-            vpImageIo::read(I_req_full, iter->path().string());
+            vpImageIo::read(I_req, iter->path().string());
             break;
         }
     }
@@ -176,13 +175,13 @@ int main(int argc, char **argv)
 
     // lecture de l'image "masque"
     // Chargement du masque
-    vpImage<unsigned char> Mask_full, Mask_rsz;
+    vpImage<unsigned char> Mask;
     if (argc < 8)
     {
 #ifdef VERBOSE
         std::cout << "no mask image given" << std::endl;
 #endif
-        Mask_full.resize(I_req_full.getHeight(), I_req_full.getWidth(), 255);
+        Mask.resize(I_req.getHeight(), I_req.getWidth(), 255);
     }
     else
     {
@@ -191,12 +190,12 @@ int main(int argc, char **argv)
 #endif
         try
         {
-            vpImageIo::read(Mask_full, argv[7]);
+            vpImageIo::read(Mask, argv[7]);
         }
         catch (vpException e)
         {
             std::cout << "unable to load mask file" << std::endl;
-            Mask_full.resize(I_req_full.getHeight(), I_req_full.getWidth(), 255);
+            Mask.resize(I_req.getHeight(), I_req.getWidth(), 255);
         }
     }
 
@@ -290,27 +289,25 @@ int main(int argc, char **argv)
 #ifdef VERBOSE
     std::cout << "end parameters list" << std::endl;
 #endif
-
     // 2. Gyro objects initialization, considering the pose estimation of a spherical camera from the feature set of photometric Gaussian mixture 3D samples compared thanks to the SSD
 
-    /*unsigned */ int ehaut_full, elarg_full, ehaut_rsz, elarg_rsz;
-    ehaut_full = I_req_full.getHeight();
-    elarg_full = I_req_full.getWidth();
-    double ratio = sqrt(ehaut_full * elarg_full / (0.5 * (20 * pow(4, subdivLevel) + 2)));
-    ehaut_rsz = ehaut_full / ratio;
-    elarg_rsz = elarg_full / ratio;
-    prEquirectangular ecam_rsz(elarg_rsz * 0.5 / M_PI, ehaut_rsz * 0.5 / (M_PI * 0.5), elarg_rsz * 0.5, ehaut_rsz * 0.5);
+    /*
+    //En image plane
+    prPhotometricGMS<pr2DCartesianPointVec> G_sample;
+    pr2DCartesianPointVec u_g;
+    G_sample.buildFrom(I_req, u_g, lambda_g);
+    */
 
-    vpImage<unsigned char> I_req_rsz;
-    I_req_rsz.resize(ehaut_rsz, elarg_rsz);
-    vpImageTools::resize(I_req_full, I_req_rsz, vpImageTools::INTERPOLATION_AREA);
-    Mask_rsz.resize(ehaut_rsz, elarg_rsz);
-    vpImageTools::resize(Mask_full, Mask_rsz, vpImageTools::INTERPOLATION_AREA);
+    /*unsigned */ int ehaut, elarg;
+    ehaut = I_req.getHeight();
+    elarg = I_req.getWidth();
+    // nbPixelse = ehaut*elarg;
+    prEquirectangular ecam(elarg * 0.5 / M_PI, ehaut * 0.5 / (M_PI * 0.5), elarg * 0.5, ehaut * 0.5);
 
     // En image spherique
     // initialisation de l'estimation d'orientation
-    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prEquirectangular>, prRegularlySampledCSImage>, prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prEquirectangular>>> gyro(1e-6);
-    // bool dofs[6] = {false, false, false, false, true, false}; //"compas"
+    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prEquirectangular>, prRegularlySampledCSImage>, prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prEquirectangular>>> gyro;
+    //    bool dofs[6] = {false, false, false, true, false, false}; //"compas"
     bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
 
     gyro.setdof(dofs[0], dofs[1], dofs[2], dofs[3], dofs[4], dofs[5]);
@@ -319,22 +316,22 @@ int main(int argc, char **argv)
     prRegularlySampledCSImage<unsigned char> IS_req(subdivLevel); // the regularly sample spherical image to be set from the acquired/loaded dual fisheye image
     IS_req.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
 
-    IS_req.buildFromEquiRect(I_req_rsz, ecam_rsz, &Mask_rsz);
+    IS_req.buildFromEquiRect(I_req, ecam, &Mask);     // Goulot !
     prRegularlySampledCSImage<float> GS(subdivLevel); // contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
 
     prFeaturesSet<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prEquirectangular>, prRegularlySampledCSImage> fSet_req;
     prIntensity<prCartesian3DPointVec, prEquirectangular> GS_sample_req;
-    GS_sample_req.setSensor(&ecam_rsz);
+    GS_sample_req.setSensor(&ecam);
     // TODO : calculer en parallele un fSet_req avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
     fSet_req.buildFrom(IS_req, GS, GS_sample_req);
 
     gyro.buildFrom(fSet_req);
 
     prIntensity<prCartesian3DPointVec, prEquirectangular> GS_sample;
-    GS_sample.setSensor(&ecam_rsz);
+    GS_sample.setSensor(&ecam);
     std::cout << "nb features : " << fSet_req.set.size() << std::endl;
 
-    // vpDisplayX disp2;
+    vpDisplayX disp2;
 
     // to save iterations
     std::ostringstream s;
@@ -362,16 +359,7 @@ int main(int argc, char **argv)
     bool poseJacobianCompute = true;
     // activate the M-Estimator
     bool robust = false; // true;//
-    vpImage<unsigned char> I_des_full, I_des_rsz;
-    I_des_rsz.resize(ehaut_rsz, elarg_rsz);
-
-    vpHomogeneousMatrix userFrameMiRef;
-    if (ficInit)
-    {
-        vpPoseVector rRef = v_pv_init[iRef]; // nbPass];
-        // userFrameMiRef.buildFrom(rRef);
-        userFrameMiRef.buildFrom(0, 0, 0, 0, 0, 0);
-    }
+    vpImage<unsigned char> I_des;
 
     // 3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
     // double angle = -177.5*M_PI/180.;
@@ -429,21 +417,20 @@ int main(int argc, char **argv)
             if (boost::regex_match(name, my_filter))
             {
                 std::cout << iter->path().string() << " loaded" << std::endl;
-                vpImageIo::read(I_des_full, iter->path().string());
-                vpImageTools::resize(I_des_full, I_des_rsz, vpImageTools::INTERPOLATION_AREA);
+                vpImageIo::read(I_des, iter->path().string());
                 break;
             }
         }
-        // if (nbPass == 0)
-        //     disp2.init(I_des_full, 500, 50, "I_des");
+        if (nbPass == 0)
+            disp2.init(I_des, 500, 50, "I_des");
 
-        // vpDisplay::display(I_des_full);
-        // vpDisplay::flush(I_des_full);
+        vpDisplay::display(I_des);
+        vpDisplay::flush(I_des);
 
         // Desired feature set setting from the current image
         prRegularlySampledCSImage<unsigned char> IS_des(subdivLevel);
         IS_des.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
-        IS_des.buildFromEquiRect(I_des_rsz, ecam_rsz, &Mask_rsz);
+        IS_des.buildFromEquiRect(I_des, ecam, &Mask);
 
         // calculer en parallele un fSet_des avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
         fSet_des.buildFrom(IS_des, GS, GS_sample, poseJacobianCompute); // Goulot !
@@ -452,83 +439,76 @@ int main(int argc, char **argv)
         // if there is a file provided as initial poses, they are used instead of other strategies
         if (ficInit)
         {
-            r = v_pv_init[imNum];
-            // vpHomogeneousMatrix M(r);
-            // r.buildFrom((M * userFrameMiRef.inverse()).inverse());
+            r = v_pv_init[nbPass];
             std::cout << "r init : " << r.t() << std::endl;
         }
-        //        else
-        //        {
-        // trying to select the best initial 3D orientation guess
-        if (nbTries > 1)
+        else
         {
-            vpPoseVector r_best_init, r_try;
-            double err_min_init = 1e20;
-            double angle[3] = {0, 0, 0}, pasAngulaire;
-            vpHomogeneousMatrix dMc_test, dMc_init(r), dMc;
-            double err0;
-            pasAngulaire = 2.0 * M_PI / nbTries;
+            // trying to select the best initial 3D orientation guess
+            if (nbTries > 1)
+            {
+                vpPoseVector r_best_init;
+                double err_min_init = 1e20;
+                double angle[3] = {0, 0, 0}, pasAngulaire;
+                vpHomogeneousMatrix dMc;
+                double err0;
+                pasAngulaire = 2.0 * M_PI / nbTries;
 
-            unsigned int nbTriesPerDOF[3] = {1, 1, 1};
-            if (dofs[3])
-            {
-                nbTriesPerDOF[0] = nbTries;
-                angle[0] = -pasAngulaire * floor(nbTries * 0.5);
-            }
-            if (dofs[4])
-            {
-                nbTriesPerDOF[1] = 1; // nbTries;
-                angle[1] = -pasAngulaire * floor(nbTries * 0.5);
-            }
-            if (dofs[5])
-            {
-                nbTriesPerDOF[2] = 1; // nbTries;
-                angle[2] = -pasAngulaire * floor(nbTries * 0.5);
-            }
-            for (int iTry0 = 0; iTry0 < nbTriesPerDOF[0]; iTry0++, angle[0] += pasAngulaire)
-            {
-                r_try[3] = angle[0];
-                if (dofs[4])
-                    angle[1] = -pasAngulaire * floor(nbTries * 0.5);
-                else
-                    angle[1] = 0;
-                for (int iTry1 = 0; iTry1 < nbTriesPerDOF[1]; iTry1++, angle[1] += pasAngulaire)
+                unsigned int nbTriesPerDOF[3] = {1, 1, 1};
+                if (dofs[3])
                 {
-                    r_try[4] = angle[1];
-                    if (dofs[5])
-                        angle[2] = -pasAngulaire * floor(nbTries * 0.5);
+                    nbTriesPerDOF[0] = nbTries;
+                    angle[0] = -pasAngulaire * floor(nbTries * 0.5);
+                }
+                if (dofs[4])
+                {
+                    nbTriesPerDOF[1] = 1; // nbTries;
+                    angle[1] = -pasAngulaire * floor(nbTries * 0.5);
+                }
+                if (dofs[5])
+                {
+                    nbTriesPerDOF[2] = 1; // nbTries;
+                    angle[2] = -pasAngulaire * floor(nbTries * 0.5);
+                }
+                for (int iTry0 = 0; iTry0 < nbTriesPerDOF[0]; iTry0++, angle[0] += pasAngulaire)
+                {
+                    r[3] = angle[0];
+                    if (dofs[4])
+                        angle[1] = -pasAngulaire * floor(nbTries * 0.5);
                     else
-                        angle[2] = 0;
-                    for (int iTry2 = 0; iTry2 < nbTriesPerDOF[2]; iTry2++, angle[2] += pasAngulaire)
+                        angle[1] = 0;
+                    for (int iTry1 = 0; iTry1 < nbTriesPerDOF[1]; iTry1++, angle[1] += pasAngulaire)
                     {
-
-                        r_try[5] = angle[2];
-
-                        std::cout << "essai: " << r_try.t() << std::endl;
-
-                        dMc.buildFrom(r_try);
-                        dMc_test = dMc * dMc_init;
-                        fSet_req.update(dMc_test);
-
-                        prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prEquirectangular>> errorComputer(fSet_req, fSet_des, robust);
-                        prIntensity<prCartesian3DPointVec, prEquirectangular> GS_error = errorComputer.getRobustCost();
-                        err0 = GS_error.getGMS();//Val();
-
-                        if (err0 < err_min_init)
+                        r[4] = angle[1];
+                        if (dofs[5])
+                            angle[2] = -pasAngulaire * floor(nbTries * 0.5);
+                        else
+                            angle[2] = 0;
+                        for (int iTry2 = 0; iTry2 < nbTriesPerDOF[2]; iTry2++, angle[2] += pasAngulaire)
                         {
-                            err_min_init = err0;
-                            // r_best_init = r_try;
-                            r_best_init.buildFrom(dMc_test);
+                            r[5] = angle[2];
+
+                            dMc.buildFrom(r);
+                            fSet_req.update(dMc);
+
+                            prSSDCmp<prCartesian3DPointVec, prIntensity<prCartesian3DPointVec, prEquirectangular>> errorComputer(fSet_req, fSet_des, robust);
+                            prIntensity<prCartesian3DPointVec, prEquirectangular> GS_error = errorComputer.getRobustCost();
+                            err0 = GS_error.getGMS();
+
+                            if (err0 < err_min_init)
+                            {
+                                err_min_init = err0;
+                                r_best_init = r;
+                            }
                         }
                     }
                 }
+                r = r_best_init;
             }
-            r = r_best_init;
         }
-        //        }
 
         // register the request feature set over the desired one and save the optimal MPP-SSD
-        err.push_back(gyro.track(fSet_des, r, robust));
+        err.push_back(gyro.track(fSet_des, r, 1.0, robust));
 
         v_temps.push_back(vpTime::measureTimeMs() - temps);
         std::cout << "Pass " << nbPass << " time : " << v_temps[nbPass] << " ms" << std::endl;
@@ -541,18 +521,18 @@ int main(int argc, char **argv)
 
         std::cout << "weighted FPP-SSD : " << err[nbPass] << std::endl;
 
-        clickOut = vpDisplay::getClick(I_req_full, false);
+        clickOut = vpDisplay::getClick(I_req, false);
 
-        vpImage<unsigned char> I_r(I_des_rsz.getHeight(), I_des_rsz.getWidth());
+        vpImage<unsigned char> I_r(I_des.getHeight(), I_des.getWidth());
         if (stabilisation)
         {
             vpPoseVector ir;
             ir.buildFrom(vpHomogeneousMatrix(r_to_save).inverse());
-            IS_des.toEquiRect(I_r, ir, ecam_rsz, &Mask_rsz);
+            IS_des.toEquiRect(I_r, ir, ecam, &Mask);
         }
         else
         {
-            IS_req.toEquiRect(I_r, r, ecam_rsz, &Mask_rsz);
+            IS_req.toEquiRect(I_r, r, ecam, &Mask);
         }
         s.str("");
         s.setf(std::ios::right, std::ios::adjustfield);
@@ -562,6 +542,7 @@ int main(int argc, char **argv)
 
         imNum += iStep;
         nbPass++;
+        // angle += 2.5*M_PI/180.;
     }
 
     // 4. Save the MMP-SSD at optimal poses, optimal poses, processing times and key images numbers to files
