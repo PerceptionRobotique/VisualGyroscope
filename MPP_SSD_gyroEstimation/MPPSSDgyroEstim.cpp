@@ -27,8 +27,8 @@
 
 #include <per/prStereoModel.h>
 
-#include <per/prStereoModelXML.h>
 #include <per/prRegularlySampledCSImage.h>
+#include <per/prStereoModelXML.h>
 #include <per/prVoronoiIcosahedronImageMapping.h>
 
 #include <per/prPhotometricGMS.h>
