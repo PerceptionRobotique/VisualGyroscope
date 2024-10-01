@@ -27,7 +27,7 @@ project(MPP_SSD_gyroEstimation)
 
 cmake_minimum_required(VERSION 2.6)
 
-find_package(PER REQUIRED per_core per_acquisition_representation per_io per_features per_sensor_pose_estimation per_estimation)
+find_package(PER REQUIRED per_core per_io per_features per_sensor_pose_estimation per_estimation per_acquisition_representation)
 if(PER_FOUND)
 	include(${PER_USE_FILE})
 endif(PER_FOUND)

@@ -31,15 +31,15 @@
 #include <per/prStereoModelXML.h>
 #include <per/prVoronoiIcosahedronImageMapping.h>
 
-#include <per/prPhotometricGMS.h>
 #include <per/prFeaturesSet.h>
+#include <per/prPhotometricGMS.h>
 
 #include <per/prSSDCmp.h>
 
 #include <per/prPoseSphericalEstim.h>
 
-#include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/regex.hpp>
 
 #include <visp/vpImage.h>
 #include <visp/vpImageIo.h>
@@ -372,6 +372,12 @@ int main(int argc, char **argv)
     //3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
     //double angle = -177.5*M_PI/180.;
     prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, IMAGEREPRESENTATION > fSet_des;
+
+        // Desired feature set setting from the current image
+    IMAGEREPRESENTATION<unsigned char> IS_des(subdivLevel);
+    IS_des.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
+
+
     double seuilErr = 0.0325; //0.015; //0.0077;// // OK pour 0,325 seul et subdiv3
     while(!clickOut && (imNum <= i360))
     {
@@ -435,9 +441,6 @@ int main(int argc, char **argv)
         vpDisplay::display(I_des);
         vpDisplay::flush(I_des);
         
-        // Desired feature set setting from the current image
-        IMAGEREPRESENTATION<unsigned char> IS_des(subdivLevel);
-        IS_des.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
         IS_des.buildFromTwinOmni(I_des, stereoCam, &Mask);
         IS_des.toAbsZN();
         
