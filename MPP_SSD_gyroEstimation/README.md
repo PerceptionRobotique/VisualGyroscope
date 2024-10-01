@@ -33,6 +33,8 @@ make -j12
 - `truncGauss` if 1, considers truncated Gaussian domain (+ or - 3 lambda_g at most)
 - `ficPosesInit` the text file of initial poses, one pose line per image to process (no example provided)
 
+Optionaly, the spherical representation can be set to either the **subdivided icosahedron** or the **Voronoi graph associated to the icosahedron** (UniphorM representation) in the `define` at the top of the example program.
+
 ## Associated article
 
 ICRA 2018 [**[paper]**](https://hal.science/hal-01716939/file/CaMo_ICRA18.pdf)
