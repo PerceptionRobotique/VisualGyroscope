@@ -37,6 +37,10 @@ OmniCV 2022 CVPR Workshop [**[paper]**](https://openaccess.thecvf.com/content/CV
 > André, A. N., & Caron, G. (2022). Photometric Visual Gyroscope for Full-View Spherical Camera. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 5232-5235).
 
 ```
+Copyright (C) 2017-2024 by MIS lab (UPJV). All rights reserved.
+
+See http://mis.u-picardie.fr/~g-caron/fr/index.php?page=7 for more information.
+
 This software was developed at:
 MIS - UPJV
 33 rue Saint-Leu

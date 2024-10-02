@@ -36,6 +36,10 @@ OmniCV 2023 CVPR Workshop [**[paper]**](https://openaccess.thecvf.com/content/CV
 > Berenguel-Baeta, B., André, A. N., Caron, G., Bermudez-Cameo, J., & Guerrero, J. J. (2023). Visual Gyroscope: Combination of Deep Learning Features and Direct Alignment for Panoramic Stabilization. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 6444-6447).
 
 ```
+Copyright (C) 2017-2024 by MIS lab (UPJV). All rights reserved.
+
+See http://mis.u-picardie.fr/~g-caron/fr/index.php?page=7 for more information.
+
 This software was developed at:
 MIS - UPJV
 33 rue Saint-Leu
