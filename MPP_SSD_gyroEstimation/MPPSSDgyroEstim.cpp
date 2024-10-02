@@ -15,7 +15,9 @@
  \param nbTries the number of tested initial guesses for the optimization (the one leading to the lower MPP-SSD is kept)
  \param estimationType selects which estimation type to consider between 0 pure gyro, 1 incremental gyro, 2 incremental fyro with key images
  \param stabilization if 1, outputs the rotation compensated dualfisheye image
+ \param truncGauss truncated Gaussian domain: 1 yes (+ or - 3 lambda_g at most), 0 no (default)
  \param ficPosesInit the text file of initial poses (one pose line per image to process)
+ \param ficPosesInit_i0 the first image index of the sequence within the text file of initial poses (default 0)
  *
  \author Guillaume CARON
  \version 0.1
@@ -279,10 +281,25 @@ int main(int argc, char **argv)
     else
         stabilisation = atoi(argv[12]);
     
-    //fichier avec les poses initiales r_0
+	//truncated Gaussians
+    unsigned int truncGauss = 0;
+    if(argc < 14)
+    {
+#ifdef VERBOSE
+        std::cout << "no Gaussian truncature parameter given" << std::endl;
+#endif
+        //return -9;
+    }
+    else
+        truncGauss = atoi(argv[13]);
+#ifdef VERBOSE
+    std::cout << "Truncated Gaussians: " << ((truncGauss==1)?"On":"Off") << std::endl;
+#endif
+
+//fichier avec les poses initiales r_0
     bool ficInit = false;
     std::vector<vpPoseVector> v_pv_init;
-    if(argc < 14)
+    if(argc < 15)
     {
 #ifdef VERBOSE
         std::cout << "no initial poses file given" << std::endl;
@@ -291,18 +308,57 @@ int main(int argc, char **argv)
     }
     else
     {
-        ficInit = true;
+#ifdef VERBOSE
+    std::cout << "Tries to read pose file: " << argv[14] << std::endl;
+#endif        
 
-        std::ifstream ficPosesInit(argv[13]);
-        vpPoseVector r;
-        while(!ficPosesInit.eof())
-        {
-            ficPosesInit >> r[0] >> r[1] >> r[2] >> r[3] >> r[4] >> r[5];
-            v_pv_init.push_back(r);
+        std::ifstream ficPosesInit(argv[14]);
+        
+        if(ficPosesInit.is_open())
+        {      
+	        ficInit = true;
+        
+		      vpPoseVector r;
+		      while(!ficPosesInit.eof())
+		      {
+		          ficPosesInit >> r[0] >> r[1] >> r[2] >> r[3] >> r[4] >> r[5];
+		          r[0] = r[1] = r[2] = 0.; // this is to ensure ignoring the translations
+//		          ficPosesInit >> r[3] >> r[4] >> r[5];
+		          v_pv_init.push_back(r);
+		      }
+		      ficPosesInit.close();
         }
-        ficPosesInit.close();
+        else
+        {
+         ficInit = false;
+#ifdef VERBOSE
+    std::cout << "Pose file does not exist" << std::endl;
+#endif
+        }
+        
     }
+    
+	unsigned int ficPosesInit_i0;
+    if(argc < 16)
+    {
+#ifdef VERBOSE
+        std::cout << "no initial image file number within pose file given. Set to 0." << std::endl;
+#endif
+//        return -6;
+    }
+		else
+     	ficPosesInit_i0 = atoi(argv[15]);//1;//0;
 
+		if(ficPosesInit_i0 > iRef)
+			ficPosesInit_i0 = 0;
+
+#ifdef VERBOSE
+    std::cout << "Initial image file number within pose file: " << ficPosesInit_i0 << std::endl;
+#endif
+    
+#ifdef VERBOSE
+    std::cout << "end parameters list" << std::endl;
+#endif
     
     // 2. Gyro objects initialization, considering the pose estimation of a spherical camera from the feature set of photometric Gaussian mixture 3D samples compared thanks to the SSD
     
@@ -330,13 +386,13 @@ int main(int argc, char **argv)
     IMAGEREPRESENTATION<float> GS(subdivLevel); //contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
     
     prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>,IMAGEREPRESENTATION > fSet_req;
-    prPhotometricGMS<prCartesian3DPointVec> GS_sample_req(lambda_g);
+    prPhotometricGMS<prCartesian3DPointVec> GS_sample_req(lambda_g, truncGauss==1);
     // TODO : calculer en parallele un fSet_req avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
     fSet_req.buildFrom(IS_req, GS, GS_sample_req);
 
     gyro.buildFrom(fSet_req);
     
-    prPhotometricGMS<prCartesian3DPointVec> GS_sample(lambda_g);
+    prPhotometricGMS<prCartesian3DPointVec> GS_sample(lambda_g, truncGauss==1);
     std::cout << "nb features : " << fSet_req.set.size() << std::endl;
     
     vpDisplayX disp2;
