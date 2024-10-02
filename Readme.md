@@ -84,7 +84,7 @@ make -j12
 
 To perform the visual orientation estimation, the examples rely on some common parameters. _For an exhaustive list, please read the explanations attached to each example_.
 
-- Path to omnidirectional images. [**[link]**](https://home.mis.u-picardie.fr/~panoramis/) **to PanoraMIS** dataset used in the articles
+- Path to omnidirectional images. [**[link]**](https://home.mis.u-picardie.fr/~panoramis/) **to PanoraMIS** dataset used in the articles or shorter versions just to test with [dual-fisheye images](https://mis.u-picardie.fr/~g-caron/data/PeR/2017_MPP_SSD_gyroEstimation_media.zip) or [equirectangular images](https://mis.u-picardie.fr/~g-caron/data/PeR/2021_MPP_SSD_gyroEstimation_EquiRect_media.zip)
 - Number of subdivision of the icosahedron: any value in {3,4,5}
 - `iRef` reference image number
 - `i0` first image to measure the orientation
