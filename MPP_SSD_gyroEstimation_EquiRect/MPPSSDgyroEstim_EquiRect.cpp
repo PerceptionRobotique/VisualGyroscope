@@ -27,6 +27,7 @@
 #include <iomanip>
 
 #include <per/prRegularlySampledCSImage.h>
+#include <per/prVoronoiIcosahedronImageMapping.h>
 
 #include <per/prPhotometricGMS.h>
 #include <per/prFeaturesSet.h>
@@ -34,6 +35,8 @@
 #include <per/prSSDCmp.h>
 
 #include <per/prPoseSphericalEstim.h>
+
+#include <per/prStereoModel.h>
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
@@ -46,6 +49,14 @@
 #include <visp/vpDisplayX.h>
 
 #define INTERPTYPE prInterpType::IMAGEPLANE_BILINEAR
+
+#define IMGREP 1
+
+#if defined(IMGREP) && IMGREP == 1
+    #define IMAGEREPRESENTATION prVoronoiIcosahedronImageMapping
+#else
+    #define IMAGEREPRESENTATION prRegularlySampledCSImage
+#endif
 
 #define VERBOSE
 
@@ -170,7 +181,7 @@ int main(int argc, char **argv)
     std::cout << "Image sequence step :" << iStep << std::endl;
 #endif
     
-    sprintf(myFilter, "e_%06d.*\\.%s", iRef, ext);
+    sprintf(myFilter, "%06d.*\\.%s", iRef, ext);
     
     boost::filesystem::path dir(chemin);
     boost::regex my_filter( myFilter );
@@ -361,22 +372,22 @@ int main(int argc, char **argv)
     
     //En image spherique
     //initialisation de l'estimation d'orientation
-    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, prRegularlySampledCSImage >, prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > > gyro(1e-6);
-    bool dofs[6] = {false, false, false, false, true, false}; //"compas"
-//    bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
+    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, IMAGEREPRESENTATION >, prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > > gyro(1e-6);
+//    bool dofs[6] = {false, false, false, false, true, false}; //"compas"
+    bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
 
     gyro.setdof(dofs[0], dofs[1], dofs[2], dofs[3], dofs[4], dofs[5]);
 
     //prepare the request spherical image (here, the reference image is always considered as the request in order to compute the rotations that allow to rotate it to the current image)
-    prRegularlySampledCSImage<unsigned char> IS_req(subdivLevel); //the regularly sample spherical image to be set from the acquired/loaded dual fisheye image
+    IMAGEREPRESENTATION<unsigned char> IS_req(subdivLevel); //the regularly sample spherical image to be set from the acquired/loaded dual fisheye image
     IS_req.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
     
     //IS_req.buildFromTwinOmni(I_req, stereoCam, &Mask); // Goulot !
     IS_req.buildFromEquiRect(I_req, ecam, &Mask); 
     IS_req.toAbsZN(); //prepare spherical pixels intensities for the MPP cost function expression constraints
-    prRegularlySampledCSImage<float> GS(subdivLevel); //contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
+    IMAGEREPRESENTATION<float> GS(subdivLevel); //contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
     
-    prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>,prRegularlySampledCSImage > fSet_req;
+    prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>,IMAGEREPRESENTATION > fSet_req;
     prPhotometricGMS<prCartesian3DPointVec> GS_sample_req(lambda_g, truncGauss==1);
     // TODO : calculer en parallele un fSet_req avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
     fSet_req.buildFrom(IS_req, GS, GS_sample_req);
@@ -428,7 +439,7 @@ int main(int argc, char **argv)
     
     //3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
     //double angle = -177.5*M_PI/180.;
-    prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, prRegularlySampledCSImage > fSet_des;
+    prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, IMAGEREPRESENTATION > fSet_des;
     double seuilErr = 0.0325; //0.015; //0.0077;// // OK pour 0,325 seul et subdiv3
     while(!clickOut && (imNum <= i360))
     {
@@ -472,7 +483,7 @@ int main(int argc, char **argv)
             }
         }
         
-        sprintf(myFilter, "e_%06d.*\\.%s", imNum, ext);
+        sprintf(myFilter, "%06d.*\\.%s", imNum, ext);
         
         my_filter.set_expression(myFilter);
         
@@ -493,7 +504,7 @@ int main(int argc, char **argv)
         vpDisplay::flush(I_des);
         
         // Desired feature set setting from the current image
-        prRegularlySampledCSImage<unsigned char> IS_des(subdivLevel);
+        IMAGEREPRESENTATION<unsigned char> IS_des(subdivLevel);
         IS_des.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
         //IS_des.buildFromTwinOmni(I_des, stereoCam, &Mask);
         IS_des.buildFromEquiRect(I_des, ecam, &Mask);
@@ -600,22 +611,34 @@ int main(int argc, char **argv)
         clickOut=vpDisplay::getClick(I_req,false);
         
         vpImage<unsigned char> I_r(I_des.getHeight(), I_des.getWidth());
+
         if(stabilisation)
         {
             vpPoseVector ir;
             ir.buildFrom(vpHomogeneousMatrix(r_to_save).inverse());
             //IS_des.toTwinOmni(I_r, ir, stereoCam, &Mask);
-            IS_des.toEquiRect(I_r, ir, ecam, &Mask);
+            #if defined(IMGREP) && IMGREP == 1
+                prStereoModel dummyStereoCam(2);
+                std::cout << "toImageRotate: " << IS_des.toTwinOmni(I_r, ir, dummyStereoCam) << std::endl;
+            #else
+                IS_des.toEquiRect(I_r, ir, ecam, &Mask);
+            #endif
         }
         else
         {
             //IS_req.toTwinOmni(I_r, r, stereoCam, &Mask);
-            IS_req.toEquiRect(I_r, r, ecam, &Mask);
+            #if defined(IMGREP) && IMGREP == 1
+                prStereoModel dummyStereoCam(2);
+                std::cout << "toImageRotate: " << IS_req.toTwinOmni(I_r, r, dummyStereoCam) << std::endl;
+            #else
+                IS_req.toEquiRect(I_r, r, ecam, &Mask);
+            #endif
         }
         s.str("");
         s.setf(std::ios::right, std::ios::adjustfield);
         s << chemin << "/rotComp/" << std::setfill('0') << std::setw(6) << imNum << ".png";
         filename = s.str();
+
         vpImageIo::write(I_r, filename);
         
         imNum+=iStep;
