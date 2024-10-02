@@ -98,7 +98,8 @@
  *         -7 no last file index
  *         -8 no image step
  */
-int main(int argc, char **argv) {
+int main(int argc, char **argv) 
+{
 
   // 1. Loading a divergent stereovision system made of two fisheye cameras
   // considering the Barreto's model from an XML file got from the MV
@@ -321,128 +322,8 @@ int main(int argc, char **argv) {
 #endif
     // return -9;
   } else {
-    ficInit = true;
 
-    std::ifstream ficPosesInit(argv[13]);
-    vpPoseVector r;
-    while (!ficPosesInit.eof()) {
-      ficPosesInit >> r[0] >> r[1] >> r[2] >> r[3] >> r[4] >> r[5];
-      v_pv_init.push_back(r);
-    }
-    ficPosesInit.close();
-  }
-
-  // 2. Gyro objects initialization, considering the pose estimation of a
-  // spherical camera from the feature set of photometric Gaussian mixture 3D
-  // samples compared thanks to the SSD
-
-  /*
-  //En image plane
-  prPhotometricGMS<pr2DCartesianPointVec> G_sample;
-  pr2DCartesianPointVec u_g;
-  G_sample.buildFrom(I_req, u_g, lambda_g);
-  */
-
-  // En image spherique
-  // initialisation de l'estimation d'orientation
-  prPoseSphericalEstim<
-      prFeaturesSet<prCartesian3DPointVec,
-                    prPhotometricGMS<prCartesian3DPointVec>,
-                    IMAGEREPRESENTATION>,
-      prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>>>
-      gyro;
-  //    bool dofs[6] = {false, false, false, true, false, false}; //"compas"
-  bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
-
-  gyro.setdof(dofs[0], dofs[1], dofs[2], dofs[3], dofs[4], dofs[5]);
-
-  // prepare the request spherical image (here, the reference image is always
-  // considered as the request in order to compute the rotations that allow to
-  // rotate it to the current image)
-  IMAGEREPRESENTATION<unsigned char> IS_req(
-      subdivLevel); // the regularly sample spherical image to be set from the
-                    // acquired/loaded dual fisheye image
-  IS_req.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
-
-  IS_req.buildFromTwinOmni(I_req, stereoCam, &Mask); // Goulot !
-  IS_req.toAbsZN(); // prepare spherical pixels intensities for the MPP cost
-                    // function expression constraints
-  IMAGEREPRESENTATION<float> GS(
-      subdivLevel); // contient tous les pr3DCartesianPointVec XS_g et fera
-                    // GS_sample.buildFrom(IS_req, XS_g);
-
-  prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>,
-                IMAGEREPRESENTATION>
-      fSet_req;
-  prPhotometricGMS<prCartesian3DPointVec> GS_sample_req(lambda_g);
-  // TODO : calculer en parallele un fSet_req avec lambda_g /= 10 pour les
-  // dernières itérations --> précision accrue, sans perdre de temps
-  fSet_req.buildFrom(IS_req, GS, GS_sample_req);
-
-  gyro.buildFrom(fSet_req);
-
-  prPhotometricGMS<prCartesian3DPointVec> GS_sample(lambda_g);
-  std::cout << "nb features : " << fSet_req.set.size() << std::endl;
-
-  vpDisplayX disp2;
-
-  // to save iterations
-  std::ostringstream s;
-  std::string filename;
-  s.str("");
-  s.setf(std::ios::right, std::ios::adjustfield);
-  s << chemin << "/iter_" << iRef << "_" << i0 << "_" << i360 << ".txt";
-  filename = s.str();
-  gyro.startSaveIterations((char *)filename.c_str());
-
-  // Pour chaque image du dataset
-  int nbPass = 0;
-  bool clickOut = false;
-  unsigned int imNum = i0;
-  std::vector<double> err;
-  std::vector<vpPoseVector> pv;
-  double temps;
-  std::vector<double> v_temps;
-  std::vector<unsigned int> v_keyImageNum;
-  v_temps.reserve((i360 - i0) / iStep);
-
-  vpPoseVector r, r_to_save;
-  vpHomogeneousMatrix key_dMc, dMd_prec;
-
-  bool poseJacobianCompute = true;
-  // activate the M-Estimator
-  bool robust = false; // true;//
-  vpImage<unsigned char> I_des;
-
-  // 3. Successive computation of the "desired" festures set for every image of
-  // the sequence that are used to register the request spherical image
-  // considering zero values angles initialization, the optimal angles of the
-  // previous image (the request image changes at every iteration), the optimal
-  // angles of the previous image (the resquest image changes only if the
-  // MPP-SSD error is greater than a threshold) double angle = -177.5*M_PI/180.;
-  prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>,
-                IMAGEREPRESENTATION>
-      fSet_des;
-
-  // Desired feature set setting from the current image
-  IMAGEREPRESENTATION<unsigned char> IS_des(subdivLevel);
-  IS_des.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
-
-  double seuilErr =
-      0.0325; // 0.015; //0.0077;// // OK pour 0,325 seul et subdiv3
-  while (!clickOut && (imNum <= i360)) {
-    temps = vpTime::measureTimeMs();
-    std::cout << "num request image : " << nbPass << std::endl;
-
-    switch (estimationType) {
-    case 0: // gyro pur
-    default: {
-      r.set(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-      break;
-    }
-    case 1: // odometrie
-    {
-#ifdef VERBOSE
+  #ifdef VERBOSE
     std::cout << "Tries to read pose file: " << argv[14] << std::endl;
 #endif        
 
@@ -571,20 +452,44 @@ int main(int argc, char **argv) {
     double seuilErr = 0.0325; //0.015; //0.0077;// // OK pour 0,325 seul et subdiv3
     while(!clickOut && (imNum <= i360))
     {
-      if ((nbPass > 0) && (err[nbPass - 1] > seuilErr)) {
-        key_dMc.buildFrom(r_to_save);
-        fSet_req = fSet_des; // check si ce n'est pas encore la precedente !
-        gyro.buildFrom(fSet_req);
-        v_keyImageNum.push_back(nbPass - 1);
-        r.set(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-      }
-      break;
-    }
-    case 4: // gyro "sequence" (pas de reinit)
-    {
-      break;
-    }
-    }
+        temps = vpTime::measureTimeMs();
+        std::cout << "num request image : " << nbPass << std::endl;
+        
+        switch(estimationType)
+        {
+            case 0: //gyro pur
+            default:
+            {
+                r.set(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+                break;
+            }
+            case 1: //odometrie
+            {
+                if(nbPass > 0)
+                {
+                    key_dMc.buildFrom(r_to_save);
+                    fSet_req = fSet_des;
+                    gyro.buildFrom(fSet_req);
+                    r.set(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+                }
+                break;
+            }
+            case 2: //odometrie a images cles
+            {
+                if ((nbPass > 0) && (err[nbPass - 1] > seuilErr)) {
+                    key_dMc.buildFrom(r_to_save);
+                    fSet_req = fSet_des; // check si ce n'est pas encore la precedente !
+                    gyro.buildFrom(fSet_req);
+                    v_keyImageNum.push_back(nbPass - 1);
+                    r.set(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+                }
+                break;
+            }
+            case 4: // gyro "sequence" (pas de reinit)
+            {
+                break;
+            }
+        }
 
     sprintf(myFilter, "%06d.*\\.%s", imNum, ext);
 
