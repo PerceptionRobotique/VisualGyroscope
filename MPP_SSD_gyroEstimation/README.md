@@ -33,6 +33,8 @@ make -j12
 - `truncGauss` if 1, considers truncated Gaussian domain (+ or - 3 lambda_g at most)
 - `ficPosesInit` the text file of initial poses, one pose line per image to process (no example provided)
 
+Optionaly, the spherical representation can be set to either the **subdivided icosahedron** or the **Voronoi graph associated to the icosahedron** (UniphorM representation) in the `define` at the top of the example program.
+
 ## Associated article
 
 ICRA 2018 [**[paper]**](https://hal.science/hal-01716939/file/CaMo_ICRA18.pdf)
@@ -40,6 +42,10 @@ ICRA 2018 [**[paper]**](https://hal.science/hal-01716939/file/CaMo_ICRA18.pdf)
 > Caron, G., & Morbidi, F. (2018, May). Spherical visual gyroscope for autonomous robots using the mixture of photometric potentials. In 2018 IEEE International Conference on Robotics and Automation (ICRA) (pp. 820-827). IEEE.
 
 ```
+Copyright (C) 2017-2024 by MIS lab (UPJV). All rights reserved.
+
+See http://mis.u-picardie.fr/~g-caron/fr/index.php?page=7 for more information.
+
 This software was developed at:
 MIS - UPJV
 33 rue Saint-Leu

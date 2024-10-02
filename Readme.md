@@ -67,7 +67,7 @@ OmniCV 2023 CVPR Workshop [**[paper]**](https://openaccess.thecvf.com/content/CV
 
 **Install the following dependencies:**
 
-- [LibPeR](https://github.com/PerceptionRobotique/libPeR_base) that contains the methods for visual orientation estimation of omnidirectional images (tested with 0.1.1)
+- [LibPeR](https://github.com/PerceptionRobotique/libPeR_base) that contains the methods for visual orientation estimation of omnidirectional images (tested with 0.5.0)
 - [ViSP](https://visp.inria.fr/) (tested with 3.5)
 - Boost (tested with 1.71.0)
 - LibXML2
@@ -84,7 +84,7 @@ make -j12
 
 To perform the visual orientation estimation, the examples rely on some common parameters. _For an exhaustive list, please read the explanations attached to each example_.
 
-- Path to omnidirectional images. [**[link]**](https://home.mis.u-picardie.fr/~panoramis/) **to PanoraMIS** dataset used in the articles
+- Path to omnidirectional images. [**[link]**](https://home.mis.u-picardie.fr/~panoramis/) **to PanoraMIS** dataset used in the articles or shorter versions just to test with [dual-fisheye images](https://mis.u-picardie.fr/~g-caron/data/PeR/2017_MPP_SSD_gyroEstimation_media.zip) or [equirectangular images](https://mis.u-picardie.fr/~g-caron/data/PeR/2021_MPP_SSD_gyroEstimation_EquiRect_media.zip)
 - Number of subdivision of the icosahedron: any value in {3,4,5}
 - `iRef` reference image number
 - `i0` first image to measure the orientation
@@ -103,9 +103,11 @@ Some parameters are specific to the image used or to the method:
 - `lambdaG` Sets the Gaussian expansion for `MPP`-based methods
 - `calibFile` provides the intrinsic parameters of the dual fisheye camera, as a `.xml` file
 
-## Credits
-
 ```
+Copyright (C) 2017-2024 by MIS lab (UPJV). All rights reserved.
+
+See http://mis.u-picardie.fr/~g-caron/fr/index.php?page=7 for more information.
+
 This software was developed at:
 MIS - UPJV
 33 rue Saint-Leu
