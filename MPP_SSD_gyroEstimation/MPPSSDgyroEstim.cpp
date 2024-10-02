@@ -26,8 +26,9 @@
  \param estimationType selects which estimation type to consider between 0 pure
  gyro, 1 incremental gyro, 2 incremental fyro with key images
  \param stabilization if 1, outputs the rotation compensated dualfisheye image
- \param ficPosesInit the text file of initial poses (one pose line per image to
- process)
+ \param truncGauss truncated Gaussian domain: 1 yes (+ or - 3 lambda_g at most), 0 no (default)
+ \param ficPosesInit the text file of initial poses (one pose line per image to process)
+ \param ficPosesInit_i0 the first image index of the sequence within the text file of initial poses (default 0)
  *
  \author Guillaume CARON
  \version 0.1
@@ -62,10 +63,10 @@
 
 #define INTERPTYPE prInterpType::IMAGEPLANE_BILINEAR
 
-#define IMAGEREPRESENTATION prRegularlySampledCSImage
-// #define IMAGEREPRESENTATION prVoronoiIcosahedronImageMapping
+//#define IMAGEREPRESENTATION prRegularlySampledCSImage
+#define IMAGEREPRESENTATION prVoronoiIcosahedronImageMapping
 
-// #define VERBOSE
+//#define VERBOSE
 
 /*!
  * \fn main()
@@ -290,14 +291,31 @@ int main(int argc, char **argv) {
 #ifdef VERBOSE
     std::cout << "no stabilisation parameter given" << std::endl;
 #endif
-    // return -9;
-  } else
-    stabilisation = atoi(argv[12]);
+        //return -9;
+    }
+    else
+        stabilisation = atoi(argv[12]);
+    
+	//truncated Gaussians
+    unsigned int truncGauss = 0;
+    if(argc < 14)
+    {
+#ifdef VERBOSE
+        std::cout << "no Gaussian truncature parameter given" << std::endl;
+#endif
+        //return -9;
+    }
+    else
+        truncGauss = atoi(argv[13]);
+#ifdef VERBOSE
+    std::cout << "Truncated Gaussians: " << ((truncGauss==1)?"On":"Off") << std::endl;
+#endif
 
-  // fichier avec les poses initiales r_0
-  bool ficInit = false;
-  std::vector<vpPoseVector> v_pv_init;
-  if (argc < 14) {
+//fichier avec les poses initiales r_0
+    bool ficInit = false;
+    std::vector<vpPoseVector> v_pv_init;
+    if(argc < 15)
+    {
 #ifdef VERBOSE
     std::cout << "no initial poses file given" << std::endl;
 #endif
@@ -424,15 +442,134 @@ int main(int argc, char **argv) {
     }
     case 1: // odometrie
     {
-      if (nbPass > 0) {
-        key_dMc.buildFrom(r_to_save);
-        fSet_req = fSet_des;
-        gyro.buildFrom(fSet_req);
-        r.set(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-      }
-      break;
+#ifdef VERBOSE
+    std::cout << "Tries to read pose file: " << argv[14] << std::endl;
+#endif        
+
+        std::ifstream ficPosesInit(argv[14]);
+        
+        if(ficPosesInit.is_open())
+        {      
+	        ficInit = true;
+        
+		      vpPoseVector r;
+		      while(!ficPosesInit.eof())
+		      {
+		          ficPosesInit >> r[0] >> r[1] >> r[2] >> r[3] >> r[4] >> r[5];
+		          r[0] = r[1] = r[2] = 0.; // this is to ensure ignoring the translations
+//		          ficPosesInit >> r[3] >> r[4] >> r[5];
+		          v_pv_init.push_back(r);
+		      }
+		      ficPosesInit.close();
+        }
+        else
+        {
+         ficInit = false;
+#ifdef VERBOSE
+    std::cout << "Pose file does not exist" << std::endl;
+#endif
+        }
+        
     }
-    case 2: // odometrie a images cles
+    
+	unsigned int ficPosesInit_i0;
+    if(argc < 16)
+    {
+#ifdef VERBOSE
+        std::cout << "no initial image file number within pose file given. Set to 0." << std::endl;
+#endif
+//        return -6;
+    }
+		else
+     	ficPosesInit_i0 = atoi(argv[15]);//1;//0;
+
+		if(ficPosesInit_i0 > iRef)
+			ficPosesInit_i0 = 0;
+
+#ifdef VERBOSE
+    std::cout << "Initial image file number within pose file: " << ficPosesInit_i0 << std::endl;
+#endif
+    
+#ifdef VERBOSE
+    std::cout << "end parameters list" << std::endl;
+#endif
+    
+    // 2. Gyro objects initialization, considering the pose estimation of a spherical camera from the feature set of photometric Gaussian mixture 3D samples compared thanks to the SSD
+    
+    /*
+    //En image plane
+    prPhotometricGMS<pr2DCartesianPointVec> G_sample;
+    pr2DCartesianPointVec u_g;
+    G_sample.buildFrom(I_req, u_g, lambda_g);
+    */
+    
+    //En image spherique
+    //initialisation de l'estimation d'orientation
+    prPoseSphericalEstim<prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, IMAGEREPRESENTATION >, prSSDCmp<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec> > > gyro;
+//    bool dofs[6] = {false, false, false, true, false, false}; //"compas"
+    bool dofs[6] = {false, false, false, true, true, true}; //"gyro"
+
+    gyro.setdof(dofs[0], dofs[1], dofs[2], dofs[3], dofs[4], dofs[5]);
+
+    //prepare the request spherical image (here, the reference image is always considered as the request in order to compute the rotations that allow to rotate it to the current image)
+    IMAGEREPRESENTATION<unsigned char> IS_req(subdivLevel); //the regularly sample spherical image to be set from the acquired/loaded dual fisheye image
+    IS_req.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
+    
+    IS_req.buildFromTwinOmni(I_req, stereoCam, &Mask); // Goulot !
+    IS_req.toAbsZN(); //prepare spherical pixels intensities for the MPP cost function expression constraints
+    IMAGEREPRESENTATION<float> GS(subdivLevel); //contient tous les pr3DCartesianPointVec XS_g et fera GS_sample.buildFrom(IS_req, XS_g);
+    
+    prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>,IMAGEREPRESENTATION > fSet_req;
+    prPhotometricGMS<prCartesian3DPointVec> GS_sample_req(lambda_g, truncGauss==1);
+    // TODO : calculer en parallele un fSet_req avec lambda_g /= 10 pour les dernières itérations --> précision accrue, sans perdre de temps
+    fSet_req.buildFrom(IS_req, GS, GS_sample_req);
+
+    gyro.buildFrom(fSet_req);
+    
+    prPhotometricGMS<prCartesian3DPointVec> GS_sample(lambda_g, truncGauss==1);
+    std::cout << "nb features : " << fSet_req.set.size() << std::endl;
+    
+    vpDisplayX disp2;
+    
+    //to save iterations
+    std::ostringstream s;
+    std::string filename;
+    s.str("");
+    s.setf(std::ios::right, std::ios::adjustfield);
+    s << chemin << "/iter_" << iRef << "_" << i0 << "_" << i360 << ".txt";
+    filename = s.str();
+    gyro.startSaveIterations((char *)filename.c_str());
+    
+    //Pour chaque image du dataset
+    int nbPass = 0;
+    bool clickOut = false;
+    unsigned int imNum = i0;
+    std::vector<double> err;
+    std::vector<vpPoseVector> pv;
+    double temps;
+    std::vector<double> v_temps;
+    std::vector<unsigned int> v_keyImageNum;
+    v_temps.reserve((i360-i0)/iStep);
+    
+    vpPoseVector r, r_to_save;
+    vpHomogeneousMatrix key_dMc, dMd_prec;
+    
+    bool poseJacobianCompute = true;
+    //activate the M-Estimator
+    bool robust = false;//true;//
+    vpImage<unsigned char> I_des;
+    
+    //3. Successive computation of the "desired" festures set for every image of the sequence that are used to register the request spherical image considering zero values angles initialization, the optimal angles of the previous image (the request image changes at every iteration), the optimal angles of the previous image (the resquest image changes only if the MPP-SSD error is greater than a threshold)
+    //double angle = -177.5*M_PI/180.;
+    prFeaturesSet<prCartesian3DPointVec, prPhotometricGMS<prCartesian3DPointVec>, IMAGEREPRESENTATION > fSet_des;
+
+        // Desired feature set setting from the current image
+    IMAGEREPRESENTATION<unsigned char> IS_des(subdivLevel);
+    IS_des.setInterpType(prInterpType::IMAGEPLANE_BILINEAR);
+
+
+    double seuilErr = 0.0325; //0.015; //0.0077;// // OK pour 0,325 seul et subdiv3
+    while(!clickOut && (imNum <= i360))
     {
       if ((nbPass > 0) && (err[nbPass - 1] > seuilErr)) {
         key_dMc.buildFrom(r_to_save);
